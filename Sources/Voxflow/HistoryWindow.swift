@@ -71,6 +71,7 @@ private struct HistoryView: View {
 
 private struct HistoryRow: View {
     let entry: HistoryLine
+    @State private var didCopy = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -81,6 +82,17 @@ private struct HistoryRow: View {
                 Text("\(entry.sttMs)+\(entry.cleanupMs)+\(entry.pasteMs)ms")
                     .font(.caption2.monospacedDigit())
                     .foregroundStyle(.secondary)
+                Button(didCopy ? "Copied" : "Copy") {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(entry.finalText, forType: .string)
+                    didCopy = true
+                    Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: 1_500_000_000)
+                        didCopy = false
+                    }
+                }
+                .controlSize(.mini)
+                .buttonStyle(.bordered)
             }
             Text(entry.finalText)
                 .font(.system(.body, design: .monospaced))

@@ -35,11 +35,14 @@ All notable iterations from the autonomous loop run on 2026-05-10.
 
 ### Tests
 
-51 unit tests, all green: AppState, Hotkey, SkipGate, SystemPrompt, IdentityCache, History, CleanupPipeline (3), HeuristicCleanup (7), CleanupMode (4), DictationOrchestrator (4), TokenBudget, FixtureGate (2), HallucinationFixture, **EndToEndIntegration (3)**.
+54 unit tests, all green: AppState, Hotkey, SkipGate, SystemPrompt, IdentityCache, History, CleanupPipeline (3), HeuristicCleanup (7), CleanupMode (4), DictationOrchestrator (4), TokenBudget, FixtureGate (2), HallucinationFixture, **EndToEndIntegration (3)**, **OllamaHealthProbe (3)**.
 
 ### Polish
 
 - Standard NSApp main menu (App / Edit / Window) so Cm+C/V/X/A and Cmd+, work in the Settings text fields and the About panel opens via the App menu.
+- Settings → Cleanup shows live Ollama reachability + cleanup-model availability, with auto-reprobe whenever URL or model changes.
+- History rows have a Copy button.
+- Errors auto-fade from the menu bar to "Idle" after 3s instead of pinning.
 
 ### Deferred
 

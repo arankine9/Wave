@@ -36,6 +36,8 @@ private struct SettingsView: View {
     @State private var snapshot: Preferences
     @State private var permissions: PermissionsSnapshot
     @State private var refreshTimer: Timer?
+    @State private var ollamaHealth: OllamaHealth?
+    @State private var probing = false
 
     init(prefs: PreferencesStore) {
         self.prefs = prefs
@@ -82,6 +84,9 @@ private struct SettingsView: View {
                     .disabled(snapshot.cleanupMode != .auto)
                 TextField("Ollama URL", text: $snapshot.ollamaURL)
                     .disabled(snapshot.cleanupMode != .auto)
+                if snapshot.cleanupMode == .auto {
+                    healthRow
+                }
             }
             Section("Paste") {
                 Picker("Mode", selection: $snapshot.pasteMode) {
@@ -107,8 +112,87 @@ private struct SettingsView: View {
                     permissions = PermissionsProbe.current()
                 }
             }
+            probeOllama()
         }
+        .onChange(of: snapshot.ollamaURL) { _, _ in probeOllama() }
+        .onChange(of: snapshot.cleanupModel) { _, _ in probeOllama() }
         .onDisappear { refreshTimer?.invalidate() }
+    }
+
+    @ViewBuilder
+    private var healthRow: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: healthIcon)
+                .foregroundStyle(healthColor)
+                .imageScale(.large)
+                .padding(.top, 2)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(healthTitle).font(.body.weight(.medium))
+                Text(healthDetail).font(.caption).foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+            }
+            Spacer()
+            Button(probing ? "Probing…" : "Probe") { probeOllama() }
+                .disabled(probing)
+                .buttonStyle(.bordered)
+        }
+        .padding(.vertical, 2)
+    }
+
+    private var healthIcon: String {
+        guard let h = ollamaHealth else { return "questionmark.circle" }
+        switch h.server {
+        case .reachable: return h.modelAvailable ? "checkmark.circle.fill" : "exclamationmark.triangle.fill"
+        case .unreachable: return "xmark.octagon.fill"
+        }
+    }
+
+    private var healthColor: Color {
+        guard let h = ollamaHealth else { return .secondary }
+        switch h.server {
+        case .reachable: return h.modelAvailable ? .green : .orange
+        case .unreachable: return .red
+        }
+    }
+
+    private var healthTitle: String {
+        guard let h = ollamaHealth else { return "Ollama: probing…" }
+        switch h.server {
+        case .reachable:
+            return h.modelAvailable
+                ? "Ollama reachable, '\(snapshot.cleanupModel)' available"
+                : "Ollama reachable, '\(snapshot.cleanupModel)' not pulled"
+        case .unreachable(let why):
+            return "Ollama unreachable: \(why)"
+        }
+    }
+
+    private var healthDetail: String {
+        guard let h = ollamaHealth else { return "" }
+        switch h.server {
+        case .reachable:
+            if h.modelAvailable {
+                return "Cleanup will run through Ollama. Identity-cache passes are still skipped."
+            }
+            let list = h.availableModels.isEmpty ? "no models pulled" : h.availableModels.joined(separator: ", ")
+            return "Run `ollama pull \(snapshot.cleanupModel)` to enable LLM cleanup. Available: \(list)"
+        case .unreachable:
+            return "Cleanup falls back to the heuristic transformer until Ollama is reachable."
+        }
+    }
+
+    private func probeOllama() {
+        guard snapshot.cleanupMode == .auto else { return }
+        guard let url = URL(string: snapshot.ollamaURL) else { return }
+        probing = true
+        let model = snapshot.cleanupModel
+        Task {
+            let h = await OllamaHealthProbe.check(baseURL: url, wantedModel: model)
+            await MainActor.run {
+                ollamaHealth = h
+                probing = false
+            }
+        }
     }
 
     @ViewBuilder

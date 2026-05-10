@@ -38,6 +38,19 @@ public final class AppState: @unchecked Sendable {
             _status = next
         }
         onStatusChange?(next)
+
+        // Errors are sticky in the menu bar otherwise; auto-fade to idle so
+        // the next dictation cycle starts clean. The 3s window is enough for
+        // the user to glance at the menu bar but short enough not to confuse.
+        if case .error = next {
+            DispatchQueue.global().asyncAfter(deadline: .now() + 3.0) { [weak self] in
+                guard let self else { return }
+                if case .error = self.status {
+                    self.queue.sync { self._status = .idle }
+                    self.onStatusChange?(.idle)
+                }
+            }
+        }
     }
 
     public var partial: String {
