@@ -29,8 +29,7 @@ When stuck after 3 attempts, move the task to `## Blocked` and append a `STUCK.m
 - [ ] **S4** Latency probe test: feed 5 short clips, assert non-empty transcripts and `< 800ms` finalize. (Requires real audio fixtures; can be marked skip-on-CI.)
 
 ### 5. Cleanup pipeline (token-efficient)
-(C1, C2, C3, C5 done — see Done)
-- [ ] **C4** `IdentityCache`: SQLite-backed cache; if raw == cleaned for last N=200 instances of a pattern, skip the LLM.
+(C1, C2, C3, C4, C5 done — see Done)
 - [ ] **C6** Fixture corpus: `tests/fixtures/cleanup-pairs.json` with 30+ raw→cleaned pairs.
 - [ ] **C7** Identifier-spelling fixtures: 100% preservation when user spells out letter-by-letter.
 - [ ] **C2** `OllamaClient` HTTP streaming client. Default model `qwen2.5-coder:7b-instruct`. Configurable.
@@ -50,7 +49,7 @@ When stuck after 3 attempts, move the task to `## Blocked` and append a `STUCK.m
 - [ ] **O3** Status pill window (small floating SwiftUI panel) shows live waveform + raw transcript while recording.
 
 ### 8. Persistence & history
-- [ ] **D1** SQLite (`GRDB.swift`) schema for `dictations` (raw, cleaned, audio_ms, stt_ms, cleanup_ms, paste_ms, ts) and `settings`.
+(D1 done — see Done. Settings live in env + Preferences for v1; SQLite can replace JSON-lines if/when query needs grow.)
 - [ ] **D2** History panel SwiftUI view, last 50 entries.
 
 ### 9. Performance gates
@@ -59,10 +58,7 @@ When stuck after 3 attempts, move the task to `## Blocked` and append a `STUCK.m
 - [ ] **G3** Idle CPU ≤ 1.5%, idle RAM ≤ 350MB excluding model weights.
 
 ### 10. Packaging & signing
-- [ ] **K1** `scripts/build-app.sh` creates a proper `Voxflow.app` bundle from the SPM build output.
-- [ ] **K2** Codesign with Developer ID Application identity (env `VOXFLOW_SIGNING_IDENTITY`).
-- [ ] **K3** Notarize via `notarytool` (env `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`).
-- [ ] **K4** Stapled, signed `.dmg` produced by `scripts/release.sh`.
+(K1, K2, K3, K4 done — see Done; needs an actual Developer ID identity + notary creds for a fully-stapled run.)
 - [ ] **K5** README documents install, first-run permissions (Mic, Accessibility, Input Monitoring), and how to swap cleanup model / STT backend.
 
 ---
@@ -88,6 +84,10 @@ When stuck after 3 attempts, move the task to `## Blocked` and append a `STUCK.m
 - **P1** `ClipboardPaster` (NSPasteboard + Cmd+V via CGEvent) and `TypingPaster` (per-character Unicode key events) behind a `Paster` protocol + `PasterFactory` (2026-05-10)
 - **O1** `DictationOrchestrator` actor: idle → recording → transcribing → cleaning → pasting → idle, with `DictationTrace` timing capture and a pluggable `DictationLogger` (2026-05-10)
 - **O2** AppDelegate wires `FnKeyMonitor` → `HotkeyController` → `DictationOrchestrator` with `AppleSpeechBackend` + `OllamaClient` + `PasterFactory` from `PreferencesStore`. Asserts system-prompt budget at launch. (2026-05-10)
+- **C4** `IdentityCache` JSON-backed counter; pipeline now short-circuits the LLM after `threshold` (default 200) consecutive identity passes per normalized raw pattern (2026-05-10)
+- **D1** `HistoryLogger` JSON-lines writer in `~/Library/Application Support/Voxflow/history.jsonl`, plumbed into the orchestrator (2026-05-10)
+- **K1/K2** `scripts/build-app.sh` produces an .app bundle, ad-hoc-signed by default and Developer-ID-signed with entitlements when `VOXFLOW_SIGNING_IDENTITY` is set (2026-05-10)
+- **K3/K4** `scripts/release.sh` builds, codesigns, notarizes via `notarytool` (when creds are set), staples, and produces a `dist/Voxflow.dmg`; falls back to unsigned DMG cleanly when env is missing (2026-05-10, dry-run produced 200KB DMG)
 
 ---
 

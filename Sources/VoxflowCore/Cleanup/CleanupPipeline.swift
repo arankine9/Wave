@@ -21,27 +21,42 @@ public final class CleanupPipeline: @unchecked Sendable {
     private let client: CleanupClient
     private let model: String
     private let clock: VoxflowClock
+    private let identityCache: IdentityCache?
 
-    public init(client: CleanupClient, model: String, clock: VoxflowClock = RealClock()) {
+    public init(
+        client: CleanupClient,
+        model: String,
+        clock: VoxflowClock = RealClock(),
+        identityCache: IdentityCache? = nil
+    ) {
         self.client = client
         self.model = model
         self.clock = clock
+        self.identityCache = identityCache
     }
 
-    /// Runs the full cleanup decision. If the gate says skip, returns the
-    /// raw text immediately. Otherwise streams from the cleanup client and
-    /// returns the concatenated final result.
+    /// Runs the full cleanup decision. Three short-circuits:
+    ///   1. Gate skip (short, plain text → return raw, no LLM).
+    ///   2. Identity cache hit (raw has been a no-op for the LLM `threshold`
+    ///      times in a row → trust it, return raw, no LLM).
+    ///   3. LLM round-trip with streaming concatenation, with the cache
+    ///      updated based on whether the model changed anything.
     public func run(rawTranscript: String) async throws -> CleanupResult {
         let trimmed = rawTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
         let started = clock.now()
 
         if SkipGate.shouldSkipCleanup(trimmed) {
             return CleanupResult(
-                text: trimmed,
-                path: .skipped,
-                inputTokens: 0,
-                outputTokens: 0,
-                elapsedMs: 0
+                text: trimmed, path: .skipped,
+                inputTokens: 0, outputTokens: 0, elapsedMs: 0
+            )
+        }
+
+        if let cache = identityCache, cache.shouldSkip(raw: trimmed) {
+            return CleanupResult(
+                text: trimmed, path: .skipped,
+                inputTokens: 0, outputTokens: 0,
+                elapsedMs: Int((clock.now() - started) * 1000)
             )
         }
 
@@ -54,14 +69,19 @@ public final class CleanupPipeline: @unchecked Sendable {
         }
         let outputTokens = SystemPrompt.estimateTokens(collected)
         let elapsedMs = Int((clock.now() - started) * 1000)
-
         let cleaned = collected.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if let cache = identityCache {
+            if cleaned == trimmed {
+                cache.recordIdentityPass(raw: trimmed)
+            } else {
+                cache.recordMutation(raw: trimmed)
+            }
+        }
+
         return CleanupResult(
-            text: cleaned,
-            path: .cleaned,
-            inputTokens: inputTokens,
-            outputTokens: outputTokens,
-            elapsedMs: elapsedMs
+            text: cleaned, path: .cleaned,
+            inputTokens: inputTokens, outputTokens: outputTokens, elapsedMs: elapsedMs
         )
     }
 }

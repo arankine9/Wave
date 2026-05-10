@@ -45,14 +45,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let url = URL(string: current.ollamaURL) ?? URL(string: "http://127.0.0.1:11434")!
         let client = OllamaClient(baseURL: url)
-        let pipeline = CleanupPipeline(client: client, model: current.cleanupModel)
+        let identityCache = IdentityCache(file: AppPaths.identityCacheURL())
+        let pipeline = CleanupPipeline(
+            client: client,
+            model: current.cleanupModel,
+            identityCache: identityCache
+        )
         let paster = PasterFactory.make(mode: current.pasteMode)
+        let history = HistoryLogger(file: HistoryLogger.defaultURL())
 
         let orchestrator = DictationOrchestrator(
             backend: backend,
             cleanup: pipeline,
             paster: paster,
-            appState: appState
+            appState: appState,
+            logger: history
         )
         self.orchestrator = orchestrator
 
