@@ -35,7 +35,11 @@ All notable iterations from the autonomous loop run on 2026-05-10.
 
 ### Tests
 
-48 unit tests, all green: AppState, Hotkey, SkipGate, SystemPrompt, IdentityCache, History, CleanupPipeline (3), HeuristicCleanup (7), CleanupMode (4), DictationOrchestrator (4), TokenBudget, FixtureGate (2), HallucinationFixture.
+51 unit tests, all green: AppState, Hotkey, SkipGate, SystemPrompt, IdentityCache, History, CleanupPipeline (3), HeuristicCleanup (7), CleanupMode (4), DictationOrchestrator (4), TokenBudget, FixtureGate (2), HallucinationFixture, **EndToEndIntegration (3)**.
+
+### Polish
+
+- Standard NSApp main menu (App / Edit / Window) so Cm+C/V/X/A and Cmd+, work in the Settings text fields and the About panel opens via the App menu.
 
 ### Deferred
 

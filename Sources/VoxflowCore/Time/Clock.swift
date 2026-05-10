@@ -1,11 +1,11 @@
 import Foundation
 
-public protocol VoxflowClock: AnyObject {
+public protocol VoxflowClock: AnyObject, Sendable {
     func now() -> TimeInterval
     func schedule(after delay: TimeInterval, _ block: @escaping () -> Void) -> CancelToken
 }
 
-public final class CancelToken {
+public final class CancelToken: @unchecked Sendable {
     private let cancelImpl: () -> Void
     private var cancelled = false
     public init(_ cancel: @escaping () -> Void) { self.cancelImpl = cancel }
@@ -16,7 +16,7 @@ public final class CancelToken {
     }
 }
 
-public final class RealClock: VoxflowClock {
+public final class RealClock: VoxflowClock, @unchecked Sendable {
     private let queue: DispatchQueue
     public init(queue: DispatchQueue = .main) { self.queue = queue }
 
@@ -31,7 +31,7 @@ public final class RealClock: VoxflowClock {
     }
 }
 
-public final class TestClock: VoxflowClock {
+public final class TestClock: VoxflowClock, @unchecked Sendable {
     private struct Pending {
         let id: Int
         let deadline: TimeInterval

@@ -22,6 +22,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let settings = SettingsWindowController(prefs: prefs)
         settingsController = settings
+        AppMenu.install(openSettings: { [weak settings] in settings?.show() })
         let historyWindow = HistoryWindowController(history: history)
         historyController = historyWindow
         pillController = StatusPillController(appState: appState)
