@@ -6,13 +6,20 @@ final class StatusItemController {
     private let appState: AppState
     private let openSettings: () -> Void
     private let openHistory: () -> Void
+    private let runTestDictation: () -> Void
     private var statusItem: NSStatusItem?
     private let statusMenuItem = NSMenuItem(title: "Status: Idle", action: nil, keyEquivalent: "")
 
-    init(appState: AppState, openSettings: @escaping () -> Void, openHistory: @escaping () -> Void) {
+    init(
+        appState: AppState,
+        openSettings: @escaping () -> Void,
+        openHistory: @escaping () -> Void,
+        runTestDictation: @escaping () -> Void
+    ) {
         self.appState = appState
         self.openSettings = openSettings
         self.openHistory = openHistory
+        self.runTestDictation = runTestDictation
     }
 
     func install() {
@@ -44,6 +51,7 @@ final class StatusItemController {
         let menu = NSMenu()
         menu.addItem(statusMenuItem)
         menu.addItem(.separator())
+        menu.addItem(NSMenuItem(title: "Test Dictation (paste sample)", action: #selector(runTestAction), keyEquivalent: "t"))
         menu.addItem(NSMenuItem(title: "Open Settings…", action: #selector(openSettingsAction), keyEquivalent: ","))
         menu.addItem(NSMenuItem(title: "Open History…", action: #selector(openHistoryAction), keyEquivalent: "h"))
         menu.addItem(.separator())
@@ -62,5 +70,9 @@ final class StatusItemController {
 
     @objc private func openHistoryAction() {
         openHistory()
+    }
+
+    @objc private func runTestAction() {
+        runTestDictation()
     }
 }

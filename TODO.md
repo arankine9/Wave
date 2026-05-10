@@ -98,6 +98,9 @@ When stuck after 3 attempts, move the task to `## Blocked` and append a `STUCK.m
 - **SHIPPING.md** Per-gate status table mapping every project.md requirement to its automated test or its real-env command, with a one-shot end-to-end recipe for an operator with Developer ID + Ollama. (2026-05-10)
 - **HeuristicCleanup** Regex+token fallback that converts spoken symbols ("open paren self dot id close paren" → "(self.id)"), spoken digits ("five" → "5"), and joins single-letter spelling runs ("u s e r underscore i d" → "user_id"). Wired as the pipeline's automatic fallback when Ollama isn't reachable. 7 unit tests. (2026-05-10)
 - **OnboardingWindow** First-launch SwiftUI panel with hierarchical waveform symbol, three permission rows (Mic / Input Monitoring / Accessibility) each with explainer, status icon, and Grant button that deep-links into the right Privacy & Security pane. Auto-opens only if any permission is missing; auto-refreshes every second. (2026-05-10)
+- **Cleanup mode preference** `auto` (default) / `heuristic` / `off`. Pipeline branches on it; Settings UI exposes the selector and disables Ollama fields outside `auto`. Env var `VOXFLOW_CLEANUP_MODE` honored. (2026-05-10)
+- **Test Dictation menu item** Cmd+T from the status bar runs a fixed sample (`open paren self dot user underscore id close paren`) through pipeline + paster. Verifies F5 without recording mic audio. (2026-05-10)
+- **CHANGELOG.md** Added (2026-05-10)
 
 ---
 

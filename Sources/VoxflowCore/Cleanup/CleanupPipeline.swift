@@ -23,19 +23,22 @@ public final class CleanupPipeline: @unchecked Sendable {
     private let clock: VoxflowClock
     private let identityCache: IdentityCache?
     private let allowHeuristicFallback: Bool
+    private let mode: CleanupMode
 
     public init(
         client: CleanupClient,
         model: String,
         clock: VoxflowClock = RealClock(),
         identityCache: IdentityCache? = nil,
-        allowHeuristicFallback: Bool = true
+        allowHeuristicFallback: Bool = true,
+        mode: CleanupMode = .auto
     ) {
         self.client = client
         self.model = model
         self.clock = clock
         self.identityCache = identityCache
         self.allowHeuristicFallback = allowHeuristicFallback
+        self.mode = mode
     }
 
     /// Runs the full cleanup decision. Three short-circuits:
@@ -47,6 +50,22 @@ public final class CleanupPipeline: @unchecked Sendable {
     public func run(rawTranscript: String) async throws -> CleanupResult {
         let trimmed = rawTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
         let started = clock.now()
+
+        if mode == .off {
+            return CleanupResult(
+                text: trimmed, path: .skipped,
+                inputTokens: 0, outputTokens: 0, elapsedMs: 0
+            )
+        }
+
+        if mode == .heuristic {
+            let heuristic = HeuristicCleanup.transform(trimmed)
+            return CleanupResult(
+                text: heuristic, path: .cleaned,
+                inputTokens: 0, outputTokens: SystemPrompt.estimateTokens(heuristic),
+                elapsedMs: Int((clock.now() - started) * 1000)
+            )
+        }
 
         if SkipGate.shouldSkipCleanup(trimmed) {
             return CleanupResult(

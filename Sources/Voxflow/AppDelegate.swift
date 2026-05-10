@@ -13,6 +13,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var fnMonitor: FnKeyMonitor?
     private var hotkeyController: HotkeyController?
     private var orchestrator: DictationOrchestrator?
+    private var testPipeline: CleanupPipeline?
+    private var testPaster: Paster?
     private let history = HistoryLogger(file: HistoryLogger.defaultURL())
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -26,7 +28,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusController = StatusItemController(
             appState: appState,
             openSettings: { [weak settings] in settings?.show() },
-            openHistory: { [weak historyWindow] in historyWindow?.show() }
+            openHistory: { [weak historyWindow] in historyWindow?.show() },
+            runTestDictation: { [weak self] in self?.runTestDictation() }
         )
         statusController?.install()
 
@@ -40,6 +43,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         fnMonitor?.stop()
         statusController?.uninstall()
+    }
+
+    private func runTestDictation() {
+        guard let pipeline = testPipeline, let paster = testPaster else { return }
+        let sample = "open paren self dot user underscore id close paren"
+        appState.setStatus(.cleaning)
+        Task { [weak self] in
+            do {
+                let result = try await pipeline.run(rawTranscript: sample)
+                self?.appState.setStatus(.pasting)
+                try paster.paste(result.text)
+                self?.appState.setStatus(.idle)
+            } catch {
+                self?.appState.setStatus(.error("Test: \(error)"))
+            }
+        }
     }
 
     private func installDictationPipeline() {
@@ -58,9 +77,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let pipeline = CleanupPipeline(
             client: client,
             model: current.cleanupModel,
-            identityCache: identityCache
+            identityCache: identityCache,
+            mode: current.cleanupMode
         )
         let paster = PasterFactory.make(mode: current.pasteMode)
+        self.testPipeline = pipeline
+        self.testPaster = paster
 
         let orchestrator = DictationOrchestrator(
             backend: backend,

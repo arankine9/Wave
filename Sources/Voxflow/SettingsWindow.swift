@@ -73,8 +73,15 @@ private struct SettingsView: View {
                 }
             }
             Section("Cleanup") {
+                Picker("Mode", selection: $snapshot.cleanupMode) {
+                    ForEach(CleanupMode.allCases) { mode in
+                        Text(mode.displayName).tag(mode)
+                    }
+                }
                 TextField("Ollama model", text: $snapshot.cleanupModel)
+                    .disabled(snapshot.cleanupMode != .auto)
                 TextField("Ollama URL", text: $snapshot.ollamaURL)
+                    .disabled(snapshot.cleanupMode != .auto)
             }
             Section("Paste") {
                 Picker("Mode", selection: $snapshot.pasteMode) {
