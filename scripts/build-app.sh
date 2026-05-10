@@ -27,6 +27,10 @@ mkdir -p "$APP_DIR/Contents/Resources"
 cp "$BIN" "$APP_DIR/Contents/MacOS/$APP_NAME"
 cp "$ROOT/Resources/Info.plist" "$APP_DIR/Contents/Info.plist"
 
+if [ -f "$ROOT/Resources/AppIcon.icns" ]; then
+    cp "$ROOT/Resources/AppIcon.icns" "$APP_DIR/Contents/Resources/AppIcon.icns"
+fi
+
 # Optional code-signing.
 if [ -n "${VOXFLOW_SIGNING_IDENTITY:-}" ]; then
     echo "[build-app] codesigning with identity: $VOXFLOW_SIGNING_IDENTITY"

@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "description": "Each entry pairs a raw transcript with tokens that MUST NOT appear in the cleaned output. Used to check that the cleanup model never invents identifiers, function bodies, or imports the user did not say.",
+  "entries": [
+    { "raw": "self dot user underscore id", "mustNotContain": ["password", "auth", "token", "TODO", "import"] },
+    { "raw": "let x equals five", "mustNotContain": ["import", "function", "class", "//", "console"] },
+    { "raw": "open paren close paren", "mustNotContain": ["alert", "eval", "exec", "system"] },
+    { "raw": "for i in range ten print i", "mustNotContain": ["import", "main", "end", "while"] },
+    { "raw": "return null", "mustNotContain": ["throw", "console", "log", "//"] },
+    { "raw": "import numpy as np", "mustNotContain": ["pandas", "scipy", "matplotlib", "torch"] },
+    { "raw": "def hello", "mustNotContain": ["world", "Hello", "print"] },
+    { "raw": "if user is null", "mustNotContain": ["else", "throw", "return", "redirect"] },
+    { "raw": "this dot value", "mustNotContain": ["window", "document", "global"] },
+    { "raw": "throw new error", "mustNotContain": ["console", "log", "alert"] },
+    { "raw": "yield three", "mustNotContain": ["return", "break", "continue"] },
+    { "raw": "struct point has x and y", "mustNotContain": ["init", "color", "radius"] }
+  ]
+}

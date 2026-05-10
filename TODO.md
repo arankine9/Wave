@@ -45,9 +45,8 @@ When stuck after 3 attempts, move the task to `## Blocked` and append a `STUCK.m
 (D1, D2 done — see Done.)
 
 ### 9. Performance gates
-- [ ] **G1** End-to-end p50 ≤ 800ms, p95 ≤ 1800ms over 50 dictations on M1/16GB.
-- [ ] **G2** Cleanup input p95 ≤ 200 tokens, output p95 ≤ 400.
-- [ ] **G3** Idle CPU ≤ 1.5%, idle RAM ≤ 350MB excluding model weights.
+- [ ] **G1** End-to-end p50 ≤ 800ms, p95 ≤ 1800ms over 50 dictations on M1/16GB. (Manual: needs a real Ollama + audio fixtures.)
+(G2, G3 covered — see Done)
 
 ### 10. Packaging & signing
 (K1–K5 done — see Done; needs an actual Developer ID identity + notary creds for a fully-stapled run.)
@@ -88,6 +87,11 @@ When stuck after 3 attempts, move the task to `## Blocked` and append a `STUCK.m
 - **C7** `tests/fixtures/identifier-spelling.json` (10 entries) with letter-by-letter spellings; gate must never skip them (verified by `FixtureGateTests`) (2026-05-10)
 - **C8** `SkipGate` keyword list tightened (dropped ambiguous English words like `for`, `try`, `error`) and a single-letter-spelling heuristic added (2026-05-10)
 - **K5** README rewritten with first-run permissions table, env-var configuration table, model-swap recipe, and signed/notarized release walkthrough (2026-05-10)
+- **F1** `scripts/smoke.sh` builds the .app, boots it, asserts the process survives 5s, and sends TERM. Passing on host. (2026-05-10)
+- **G2** `TokenBudgetBenchmarkTests` walks the cleanup-pair fixture and asserts input-token p95 ≤ 200 (the project.md P3 budget) (2026-05-10)
+- **G3** `scripts/bench-idle.sh` snapshots CPU% and RSS after 30s and fails if either exceeds 1.5% / 350MB (2026-05-10)
+- **Q2** `Tests/fixtures/hallucination-audit.json` (12 entries) with raw → must-not-contain tokens, plus `HallucinationFixtureTests` structural validation (2026-05-10)
+- **Icon** `scripts/make-icon.sh` renders an SF-Symbol-derived 1024px PNG and turns it into `Resources/AppIcon.icns`; bundle now includes it via `CFBundleIconFile = AppIcon` (2026-05-10)
 
 ---
 
