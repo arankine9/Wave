@@ -57,6 +57,6 @@ final class FixtureGateTests: XCTestCase {
         url.deleteLastPathComponent()
         url.deleteLastPathComponent()
         url.deleteLastPathComponent()
-        return url.appendingPathComponent("tests/fixtures/\(named)")
+        return url.appendingPathComponent("Tests/fixtures/\(named)")
     }
 }
