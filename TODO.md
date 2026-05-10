@@ -19,18 +19,17 @@ When stuck after 3 attempts, move the task to `## Blocked` and append a `STUCK.m
 - [ ] **H3** Permission probe surface: detect missing Input Monitoring and surface an in-app prompt with a "Open System Settings" deep link, instead of just a console error.
 
 ### 3. Audio capture
-- [ ] **A1** `AudioRecorder` using `AVAudioEngine` tap on the input node. Streams 16kHz mono Float32 chunks. Start/stop methods.
+(A1 done — see Done)
 - [ ] **A2** Mic permission probe with the same surfacing pattern as Input Monitoring.
 - [ ] **A3** Persist last 30s of audio to a ring buffer for debug capture (gated by a flag).
 
 ### 4. STT backend
-- [ ] **S1** `STTBackend` protocol: `start()`, `feedAudio(buffer)`, `finalize() async -> String`, `dispose()`. Events: `partial`, `final`, `error`.
-- [ ] **S2** `AppleSpeechBackend` using `SFSpeechRecognizer` with `requiresOnDeviceRecognition = true`. Default backend.
-- [ ] **S3** Backend selection via env var `VOXFLOW_STT_BACKEND` (`apple` default, `voxtral` future).
-- [ ] **S4** Latency probe test: feed 5 short clips, assert non-empty transcripts and `< 800ms` finalize.
+(S1, S2 done — see Done)
+- [ ] **S3** Backend selection via env var `VOXFLOW_STT_BACKEND` (`apple` default, `voxtral` future). PreferencesStore already reads it; expose a `STTBackendFactory` that returns the correct backend.
+- [ ] **S4** Latency probe test: feed 5 short clips, assert non-empty transcripts and `< 800ms` finalize. (Requires real audio fixtures; can be marked skip-on-CI.)
 
 ### 5. Cleanup pipeline (token-efficient)
-- [ ] **C1** `SkipGate.shouldSkipCleanup(_:)`: short, no spoken-code keywords → skip. Tests cover positive/negative cases.
+(C1 done — see Done)
 - [ ] **C2** `OllamaClient` HTTP streaming client. Default model `qwen2.5-coder:7b-instruct`. Configurable.
 - [ ] **C3** `SystemPrompt`: ≤ 150 tokens hard cap; startup assertion fails launch if exceeded. Token counter (cl100k or rough heuristic).
 - [ ] **C4** `IdentityCache`: SQLite-backed (or simple JSON for v1) cache; if raw == cleaned for last N=200 instances of a pattern, skip the LLM.
@@ -77,6 +76,10 @@ When stuck after 3 attempts, move the task to `## Blocked` and append a `STUCK.m
 - **H1** `FnKeyMonitor` CGEventTap on `flagsChanged` for `.maskSecondaryFn`, with `CGPreflightListenEventAccess` permission probe (2026-05-10)
 - **H2** `HotkeyController` state machine: hold-to-dictate (≥250ms) and double-tap-to-lock semantics, on injectable `VoxflowClock` (2026-05-10)
 - **H4** 6 deterministic `HotkeyControllerTests` covering hold, single tap, double-tap, second-press-held, out-of-window second tap, spurious release (2026-05-10)
+- **C1** `SkipGate.shouldSkipCleanup` token-based gate + 7 tests (plain prose, empty, code keywords, case-insensitive, non-allowed chars, long input, substring guard) (2026-05-10)
+- **S1** `STTBackend` / `STTSession` async protocol with `STTPartial` and typed `STTError` (2026-05-10)
+- **S2** `AppleSpeechBackend` using `SFSpeechRecognizer` with on-device recognition when supported (2026-05-10)
+- **A1** `AudioRecorder` using `AVAudioEngine` tap with multi-subscriber buffer dispatch (2026-05-10)
 
 ---
 
