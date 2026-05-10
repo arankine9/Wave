@@ -1,0 +1,15 @@
+.DS_Store
+.build/
+.swiftpm/
+build/
+dist/
+DerivedData/
+*.xcodeproj/
+*.xcworkspace/xcuserdata/
+*.dmg
+.env
+.env.local
+node_modules/
+STUCK.md.bak
+.claude/scheduled_tasks.lock
+.claude/scheduled_tasks.json
