@@ -22,17 +22,20 @@ public final class CleanupPipeline: @unchecked Sendable {
     private let model: String
     private let clock: VoxflowClock
     private let identityCache: IdentityCache?
+    private let allowHeuristicFallback: Bool
 
     public init(
         client: CleanupClient,
         model: String,
         clock: VoxflowClock = RealClock(),
-        identityCache: IdentityCache? = nil
+        identityCache: IdentityCache? = nil,
+        allowHeuristicFallback: Bool = true
     ) {
         self.client = client
         self.model = model
         self.clock = clock
         self.identityCache = identityCache
+        self.allowHeuristicFallback = allowHeuristicFallback
     }
 
     /// Runs the full cleanup decision. Three short-circuits:
@@ -63,9 +66,21 @@ public final class CleanupPipeline: @unchecked Sendable {
         let inputTokens = SystemPrompt.estimateTokens(SystemPrompt.text) +
                           SystemPrompt.estimateTokens(trimmed)
         var collected = ""
-        let stream = client.stream(systemPrompt: SystemPrompt.text, userText: trimmed, model: model)
-        for try await chunk in stream {
-            collected.append(chunk)
+        do {
+            let stream = client.stream(systemPrompt: SystemPrompt.text, userText: trimmed, model: model)
+            for try await chunk in stream {
+                collected.append(chunk)
+            }
+        } catch {
+            // No LLM reachable. Fall back to the offline heuristic cleanup so
+            // the user still gets code-shaped output instead of "open paren".
+            guard allowHeuristicFallback else { throw error }
+            let heuristic = HeuristicCleanup.transform(trimmed)
+            return CleanupResult(
+                text: heuristic, path: .cleaned,
+                inputTokens: 0, outputTokens: SystemPrompt.estimateTokens(heuristic),
+                elapsedMs: Int((clock.now() - started) * 1000)
+            )
         }
         let outputTokens = SystemPrompt.estimateTokens(collected)
         let elapsedMs = Int((clock.now() - started) * 1000)

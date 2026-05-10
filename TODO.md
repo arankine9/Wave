@@ -96,6 +96,8 @@ When stuck after 3 attempts, move the task to `## Blocked` and append a `STUCK.m
 - **bench-latency.sh** Audio-fixture replay harness for E2E p50/p95 latency. Exits with a clear message if audio fixtures or Ollama are missing. (2026-05-10)
 - **Audio fixture README** `Tests/fixtures/audio/README.md` lists 20 prompts to record and explains the `afconvert` recipe; directory gitignored so recordings stay local. (2026-05-10)
 - **SHIPPING.md** Per-gate status table mapping every project.md requirement to its automated test or its real-env command, with a one-shot end-to-end recipe for an operator with Developer ID + Ollama. (2026-05-10)
+- **HeuristicCleanup** Regex+token fallback that converts spoken symbols ("open paren self dot id close paren" → "(self.id)"), spoken digits ("five" → "5"), and joins single-letter spelling runs ("u s e r underscore i d" → "user_id"). Wired as the pipeline's automatic fallback when Ollama isn't reachable. 7 unit tests. (2026-05-10)
+- **OnboardingWindow** First-launch SwiftUI panel with hierarchical waveform symbol, three permission rows (Mic / Input Monitoring / Accessibility) each with explainer, status icon, and Grant button that deep-links into the right Privacy & Security pane. Auto-opens only if any permission is missing; auto-refreshes every second. (2026-05-10)
 
 ---
 

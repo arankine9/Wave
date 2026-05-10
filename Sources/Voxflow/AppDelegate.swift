@@ -7,6 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var settingsController: SettingsWindowController?
     private var historyController: HistoryWindowController?
     private var pillController: StatusPillController?
+    private var onboardingController: OnboardingWindowController?
     private let appState = AppState()
     private let prefs = PreferencesStore()
     private var fnMonitor: FnKeyMonitor?
@@ -30,6 +31,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusController?.install()
 
         installDictationPipeline()
+
+        let onboarding = OnboardingWindowController()
+        onboardingController = onboarding
+        onboarding.showIfPermissionsMissing()
     }
 
     func applicationWillTerminate(_ notification: Notification) {

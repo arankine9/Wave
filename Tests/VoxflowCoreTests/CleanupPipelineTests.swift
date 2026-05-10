@@ -28,9 +28,9 @@ final class CleanupPipelineTests: XCTestCase {
         XCTAssertEqual(client.callCount, 1)
     }
 
-    func testClientErrorPropagates() async {
+    func testClientErrorPropagatesWhenFallbackDisabled() async {
         let client = StubCleanupClient(error: CleanupError.modelMissing("nope"))
-        let pipeline = CleanupPipeline(client: client, model: "nope")
+        let pipeline = CleanupPipeline(client: client, model: "nope", allowHeuristicFallback: false)
 
         do {
             _ = try await pipeline.run(rawTranscript: "open paren x close paren")
