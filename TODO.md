@@ -29,7 +29,10 @@ When stuck after 3 attempts, move the task to `## Blocked` and append a `STUCK.m
 - [ ] **S4** Latency probe test: feed 5 short clips, assert non-empty transcripts and `< 800ms` finalize. (Requires real audio fixtures; can be marked skip-on-CI.)
 
 ### 5. Cleanup pipeline (token-efficient)
-(C1 done — see Done)
+(C1, C2, C3, C5 done — see Done)
+- [ ] **C4** `IdentityCache`: SQLite-backed cache; if raw == cleaned for last N=200 instances of a pattern, skip the LLM.
+- [ ] **C6** Fixture corpus: `tests/fixtures/cleanup-pairs.json` with 30+ raw→cleaned pairs.
+- [ ] **C7** Identifier-spelling fixtures: 100% preservation when user spells out letter-by-letter.
 - [ ] **C2** `OllamaClient` HTTP streaming client. Default model `qwen2.5-coder:7b-instruct`. Configurable.
 - [ ] **C3** `SystemPrompt`: ≤ 150 tokens hard cap; startup assertion fails launch if exceeded. Token counter (cl100k or rough heuristic).
 - [ ] **C4** `IdentityCache`: SQLite-backed (or simple JSON for v1) cache; if raw == cleaned for last N=200 instances of a pattern, skip the LLM.
@@ -38,9 +41,9 @@ When stuck after 3 attempts, move the task to `## Blocked` and append a `STUCK.m
 - [ ] **C7** Identifier-spelling fixtures: 100% preservation when user spells out letter-by-letter.
 
 ### 6. Paste
-- [ ] **P1** `Paster` writes to `NSPasteboard` and synthesizes Cmd+V via `CGEvent`. Configurable mode: `paste` (default) or `type` (per-character `CGEvent` keystrokes).
+(P1 done — see Done)
 - [ ] **P2** Permission probe: Accessibility required for `CGEvent.post`. Surface in settings.
-- [ ] **P3** Test in a sandbox `NSTextField` window.
+- [ ] **P3** Test in a sandbox `NSTextField` window. (Manual; fold into smoke test.)
 
 ### 7. Orchestrator
 - [ ] **O1** State machine: idle → recording → transcribing → cleaning → pasting → idle. Cancellable mid-flight.
@@ -80,6 +83,10 @@ When stuck after 3 attempts, move the task to `## Blocked` and append a `STUCK.m
 - **S1** `STTBackend` / `STTSession` async protocol with `STTPartial` and typed `STTError` (2026-05-10)
 - **S2** `AppleSpeechBackend` using `SFSpeechRecognizer` with on-device recognition when supported (2026-05-10)
 - **A1** `AudioRecorder` using `AVAudioEngine` tap with multi-subscriber buffer dispatch (2026-05-10)
+- **C2** `OllamaClient` streams `/api/chat` over `URLSession.bytes(for:)` line-by-line; surfaces 404 as `modelMissing` (2026-05-10)
+- **C3** `SystemPrompt.text` (116 estimated tokens) plus `assertWithinBudget()` startup hard cap at 150 (2026-05-10)
+- **C5** `CleanupPipeline.run` ties gate + client; returns `CleanupResult` with `path`, `inputTokens`, `outputTokens`, `elapsedMs` (2026-05-10)
+- **P1** `ClipboardPaster` (NSPasteboard + Cmd+V via CGEvent) and `TypingPaster` (per-character Unicode key events) behind a `Paster` protocol + `PasterFactory` (2026-05-10)
 
 ---
 
