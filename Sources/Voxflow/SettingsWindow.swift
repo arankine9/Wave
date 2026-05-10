@@ -38,6 +38,8 @@ private struct SettingsView: View {
     @State private var refreshTimer: Timer?
     @State private var ollamaHealth: OllamaHealth?
     @State private var probing = false
+    @State private var launchAtLoginEnabled: Bool = (LaunchAtLogin.current == .enabled)
+    @State private var launchAtLoginNote: String?
 
     init(prefs: PreferencesStore) {
         self.prefs = prefs
@@ -47,6 +49,26 @@ private struct SettingsView: View {
 
     var body: some View {
         Form {
+            Section("General") {
+                Toggle("Launch at login", isOn: Binding(
+                    get: { launchAtLoginEnabled },
+                    set: { newValue in
+                        switch LaunchAtLogin.setEnabled(newValue) {
+                        case .success(let status):
+                            launchAtLoginEnabled = (status == .enabled)
+                            launchAtLoginNote = (status == .requiresApproval)
+                                ? "Approve in System Settings → General → Login Items."
+                                : nil
+                        case .failure(let err):
+                            launchAtLoginEnabled = false
+                            launchAtLoginNote = "Couldn't update: \(err.localizedDescription)"
+                        }
+                    }
+                ))
+                if let launchAtLoginNote {
+                    Text(launchAtLoginNote).font(.caption).foregroundStyle(.secondary)
+                }
+            }
             Section("Permissions") {
                 permissionRow(
                     "Microphone",

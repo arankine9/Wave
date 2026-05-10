@@ -43,6 +43,8 @@ All notable iterations from the autonomous loop run on 2026-05-10.
 - Settings → Cleanup shows live Ollama reachability + cleanup-model availability, with auto-reprobe whenever URL or model changes.
 - History rows have a Copy button.
 - Errors auto-fade from the menu bar to "Idle" after 3s instead of pinning.
+- Settings → General → "Launch at login" via SMAppService.mainApp; surfaces "approve in System Settings" when macOS asks the user to confirm.
+- `scripts/install.sh` walks an operator through everything that needs to be installed (Ollama + cleanup model + optional Voxtral venv) before first dictation. Read-only by default; `--yes` actually installs.
 
 ### Voxtral sidecar groundwork
 
