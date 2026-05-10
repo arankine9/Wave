@@ -5,20 +5,27 @@ import VoxflowCore
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusController: StatusItemController?
     private var settingsController: SettingsWindowController?
+    private var historyController: HistoryWindowController?
+    private var pillController: StatusPillController?
     private let appState = AppState()
     private let prefs = PreferencesStore()
     private var fnMonitor: FnKeyMonitor?
     private var hotkeyController: HotkeyController?
     private var orchestrator: DictationOrchestrator?
+    private let history = HistoryLogger(file: HistoryLogger.defaultURL())
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         SystemPrompt.assertWithinBudget()
 
         let settings = SettingsWindowController(prefs: prefs)
         settingsController = settings
+        let historyWindow = HistoryWindowController(history: history)
+        historyController = historyWindow
+        pillController = StatusPillController(appState: appState)
         statusController = StatusItemController(
             appState: appState,
-            openSettings: { [weak settings] in settings?.show() }
+            openSettings: { [weak settings] in settings?.show() },
+            openHistory: { [weak historyWindow] in historyWindow?.show() }
         )
         statusController?.install()
 
@@ -52,7 +59,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             identityCache: identityCache
         )
         let paster = PasterFactory.make(mode: current.pasteMode)
-        let history = HistoryLogger(file: HistoryLogger.defaultURL())
 
         let orchestrator = DictationOrchestrator(
             backend: backend,

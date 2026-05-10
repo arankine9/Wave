@@ -34,14 +34,37 @@ final class SettingsWindowController {
 private struct SettingsView: View {
     let prefs: PreferencesStore
     @State private var snapshot: Preferences
+    @State private var permissions: PermissionsSnapshot
+    @State private var refreshTimer: Timer?
 
     init(prefs: PreferencesStore) {
         self.prefs = prefs
         _snapshot = State(initialValue: prefs.value)
+        _permissions = State(initialValue: PermissionsProbe.current())
     }
 
     var body: some View {
         Form {
+            Section("Permissions") {
+                permissionRow(
+                    "Microphone",
+                    grant: permissions.microphone,
+                    pane: .microphone,
+                    explainer: "Required to record audio while the hotkey is held."
+                )
+                permissionRow(
+                    "Input Monitoring",
+                    grant: permissions.inputMonitoring,
+                    pane: .inputMonitoring,
+                    explainer: "Required to detect the global Fn-key dictation hotkey."
+                )
+                permissionRow(
+                    "Accessibility",
+                    grant: permissions.accessibility,
+                    pane: .accessibility,
+                    explainer: "Required to paste cleaned text into the focused app."
+                )
+            }
             Section("Speech-to-text") {
                 Picker("Backend", selection: $snapshot.sttBackend) {
                     ForEach(STTBackendKind.allCases) { backend in
@@ -67,9 +90,44 @@ private struct SettingsView: View {
         }
         .formStyle(.grouped)
         .padding()
-        .frame(width: 460, height: 340)
+        .frame(width: 520, height: 540)
         .onChange(of: snapshot) { _, newValue in
             prefs.update { $0 = newValue }
         }
+        .onAppear {
+            refreshTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { _ in
+                Task { @MainActor in
+                    permissions = PermissionsProbe.current()
+                }
+            }
+        }
+        .onDisappear { refreshTimer?.invalidate() }
+    }
+
+    @ViewBuilder
+    private func permissionRow(
+        _ title: String,
+        grant: PermissionGrant,
+        pane: PermissionsProbe.SettingsPane,
+        explainer: String
+    ) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: grant == .granted ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                .foregroundStyle(grant == .granted ? .green : .orange)
+                .imageScale(.large)
+                .padding(.top, 2)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.body.weight(.medium))
+                Text(explainer).font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer()
+            if grant != .granted {
+                Button("Open Settings") {
+                    PermissionsProbe.openSystemSettings(pane)
+                }
+                .buttonStyle(.bordered)
+            }
+        }
+        .padding(.vertical, 2)
     }
 }

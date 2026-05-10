@@ -66,9 +66,20 @@ public actor DictationOrchestrator {
     private func startSession(reason: HotkeyEvent.Reason) async {
         guard activeSession == nil else { return }
         appState.setStatus(.recording)
+        appState.setPartial("")
         activeStartedAt = clock.now()
         do {
-            activeSession = try await backend.startSession()
+            let session = try await backend.startSession()
+            activeSession = session
+            // Pump partials into AppState so the status pill can render them
+            // live. Detached so we don't block startSession's caller.
+            let stream = session.partials
+            let state = appState
+            Task.detached {
+                for await partial in stream {
+                    state.setPartial(partial.text)
+                }
+            }
         } catch {
             appState.setStatus(.error("STT start: \(error)"))
             activeSession = nil

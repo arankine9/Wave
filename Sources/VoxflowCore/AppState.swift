@@ -23,7 +23,9 @@ public enum DictationStatus: Sendable, Equatable {
 public final class AppState: @unchecked Sendable {
     private let queue = DispatchQueue(label: "com.voxflow.appstate")
     private var _status: DictationStatus = .idle
+    private var _partial: String = ""
     public var onStatusChange: (@Sendable (DictationStatus) -> Void)?
+    public var onPartialChange: (@Sendable (String) -> Void)?
 
     public init() {}
 
@@ -36,5 +38,14 @@ public final class AppState: @unchecked Sendable {
             _status = next
         }
         onStatusChange?(next)
+    }
+
+    public var partial: String {
+        queue.sync { _partial }
+    }
+
+    public func setPartial(_ text: String) {
+        queue.sync { _partial = text }
+        onPartialChange?(text)
     }
 }

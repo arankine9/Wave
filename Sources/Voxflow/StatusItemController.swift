@@ -5,12 +5,14 @@ import VoxflowCore
 final class StatusItemController {
     private let appState: AppState
     private let openSettings: () -> Void
+    private let openHistory: () -> Void
     private var statusItem: NSStatusItem?
     private let statusMenuItem = NSMenuItem(title: "Status: Idle", action: nil, keyEquivalent: "")
 
-    init(appState: AppState, openSettings: @escaping () -> Void) {
+    init(appState: AppState, openSettings: @escaping () -> Void, openHistory: @escaping () -> Void) {
         self.appState = appState
         self.openSettings = openSettings
+        self.openHistory = openHistory
     }
 
     func install() {
@@ -43,6 +45,7 @@ final class StatusItemController {
         menu.addItem(statusMenuItem)
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Open Settings…", action: #selector(openSettingsAction), keyEquivalent: ","))
+        menu.addItem(NSMenuItem(title: "Open History…", action: #selector(openHistoryAction), keyEquivalent: "h"))
         menu.addItem(.separator())
         let quit = NSMenuItem(title: "Quit Voxflow", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         quit.target = NSApp
@@ -55,5 +58,9 @@ final class StatusItemController {
 
     @objc private func openSettingsAction() {
         openSettings()
+    }
+
+    @objc private func openHistoryAction() {
+        openHistory()
     }
 }

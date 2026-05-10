@@ -15,12 +15,10 @@ When stuck after 3 attempts, move the task to `## Blocked` and append a `STUCK.m
 (M1, M2, M3 done — see Done)
 
 ### 2. Fn-key hotkey
-(H1, H2, H4 done — see Done)
-- [ ] **H3** Permission probe surface: detect missing Input Monitoring and surface an in-app prompt with a "Open System Settings" deep link, instead of just a console error.
+(H1, H2, H3, H4 done — see Done)
 
 ### 3. Audio capture
-(A1 done — see Done)
-- [ ] **A2** Mic permission probe with the same surfacing pattern as Input Monitoring.
+(A1, A2 done — see Done)
 - [ ] **A3** Persist last 30s of audio to a ring buffer for debug capture (gated by a flag).
 
 ### 4. STT backend
@@ -45,12 +43,10 @@ When stuck after 3 attempts, move the task to `## Blocked` and append a `STUCK.m
 - [ ] **P3** Test in a sandbox `NSTextField` window. (Manual; fold into smoke test.)
 
 ### 7. Orchestrator
-(O1, O2 done — see Done)
-- [ ] **O3** Status pill window (small floating SwiftUI panel) shows live waveform + raw transcript while recording.
+(O1, O2, O3 done — see Done)
 
 ### 8. Persistence & history
-(D1 done — see Done. Settings live in env + Preferences for v1; SQLite can replace JSON-lines if/when query needs grow.)
-- [ ] **D2** History panel SwiftUI view, last 50 entries.
+(D1, D2 done — see Done.)
 
 ### 9. Performance gates
 - [ ] **G1** End-to-end p50 ≤ 800ms, p95 ≤ 1800ms over 50 dictations on M1/16GB.
@@ -88,6 +84,9 @@ When stuck after 3 attempts, move the task to `## Blocked` and append a `STUCK.m
 - **D1** `HistoryLogger` JSON-lines writer in `~/Library/Application Support/Voxflow/history.jsonl`, plumbed into the orchestrator (2026-05-10)
 - **K1/K2** `scripts/build-app.sh` produces an .app bundle, ad-hoc-signed by default and Developer-ID-signed with entitlements when `VOXFLOW_SIGNING_IDENTITY` is set (2026-05-10)
 - **K3/K4** `scripts/release.sh` builds, codesigns, notarizes via `notarytool` (when creds are set), staples, and produces a `dist/Voxflow.dmg`; falls back to unsigned DMG cleanly when env is missing (2026-05-10, dry-run produced 200KB DMG)
+- **O3** Floating `StatusPillController` (NSPanel + SwiftUI, ultraThinMaterial, status-bar level) shows live partial transcript + animated recording indicator; hides on idle, lingers 1.5s on errors (2026-05-10)
+- **D2** `HistoryWindowController` SwiftUI list backed by `HistoryLogger.recent(limit:)` with per-entry timing breakdown and SKIPPED/CLEANED badge (2026-05-10)
+- **H3/A2** `PermissionsProbe` (`AVCaptureDevice` + `CGPreflightListenEventAccess` + `AXIsProcessTrusted`) plus a Permissions section in Settings with an "Open System Settings" deep-link button per pane (2026-05-10)
 
 ---
 
