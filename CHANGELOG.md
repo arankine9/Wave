@@ -35,7 +35,7 @@ All notable iterations from the autonomous loop run on 2026-05-10.
 
 ### Tests
 
-54 unit tests, all green: AppState, Hotkey, SkipGate, SystemPrompt, IdentityCache, History, CleanupPipeline (3), HeuristicCleanup (7), CleanupMode (4), DictationOrchestrator (4), TokenBudget, FixtureGate (2), HallucinationFixture, **EndToEndIntegration (3)**, **OllamaHealthProbe (3)**.
+57 unit tests, all green: AppState, Hotkey, SkipGate, SystemPrompt, IdentityCache, History, CleanupPipeline (3), HeuristicCleanup (7), CleanupMode (4), DictationOrchestrator (4), TokenBudget, FixtureGate (2), HallucinationFixture, EndToEndIntegration (3), OllamaHealthProbe (3), **STTBackendFactory (3)**.
 
 ### Polish
 
@@ -44,9 +44,16 @@ All notable iterations from the autonomous loop run on 2026-05-10.
 - History rows have a Copy button.
 - Errors auto-fade from the menu bar to "Idle" after 3s instead of pinning.
 
+### Voxtral sidecar groundwork
+
+- `Sources/python/voxtral_sidecar.py` — JSONL stdin/stdout protocol. Loads Voxtral-Mini-4B-Realtime via `transformers`, accumulates audio, returns finals on demand. Friendly fatal error when deps are missing.
+- `Sources/python/requirements.txt` and `Sources/python/README.md` (install + standalone test recipe).
+- `VoxtralBackend` Swift class spawns the sidecar long-lived (one warm load per app launch), pipes 16 kHz int16 PCM via base64, parses ready/partial/final/error events.
+- `STTBackendFactory.voxtralAvailable()` precheck: only true when `VOXFLOW_VOXTRAL_PYTHON` points at an executable AND the script exists. Otherwise `STTBackendFactory.make(for: .voxtral)` falls back to Apple Speech transparently.
+
 ### Deferred
 
-- **Voxtral-Mini realtime backend.** Apple Speech covers v1; `STTBackendFactory` keeps a `voxtral` enum case that falls back to Apple. Wiring a Python-sidecar Voxtral runner is documented in TODO.
+- **Live Voxtral end-to-end.** The Swift bridge and Python sidecar are wired; what's left is for the user to `pip install -r Sources/python/requirements.txt` and set `VOXFLOW_VOXTRAL_PYTHON` to point at the venv. Then Settings → Speech-to-text → Voxtral local activates the path.
 - **GRDB / SQLite history.** JSON-lines covers v1; swap when query needs grow.
 - **Audio waveform inside the status pill.** The pill currently shows the partial transcript and a pulsing recording dot; adding a level meter is a half-day task off `AudioRingBuffer`.
 - **Apple Developer signing + notarization.** Pipeline is in place; needs the operator to set `VOXFLOW_SIGNING_IDENTITY`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID` then `bash scripts/release.sh`.

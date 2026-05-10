@@ -101,6 +101,10 @@ When stuck after 3 attempts, move the task to `## Blocked` and append a `STUCK.m
 - **Cleanup mode preference** `auto` (default) / `heuristic` / `off`. Pipeline branches on it; Settings UI exposes the selector and disables Ollama fields outside `auto`. Env var `VOXFLOW_CLEANUP_MODE` honored. (2026-05-10)
 - **Test Dictation menu item** Cmd+T from the status bar runs a fixed sample (`open paren self dot user underscore id close paren`) through pipeline + paster. Verifies F5 without recording mic audio. (2026-05-10)
 - **CHANGELOG.md** Added (2026-05-10)
+- **OllamaHealthProbe** `/api/tags` reachability + model-presence probe; Settings shows live health row with manual reprobe and per-state remediation text. 3 unit tests via in-process URLProtocol stub. (2026-05-10)
+- **History row Copy** Each row gets a Copy button with 1.5s "Copied" badge. (2026-05-10)
+- **Error auto-fade** AppState.setStatus(.error) auto-resets to .idle after 3s so the menu bar doesn't pin a stale error. (2026-05-10)
+- **VoxtralBackend** Swift + Python sidecar groundwork: long-lived process running `transformers`-loaded Voxtral-Mini-4B with JSONL stdin/stdout protocol; falls back to Apple Speech transparently when `VOXFLOW_VOXTRAL_PYTHON` isn't set. 3 STTBackendFactory tests. (2026-05-10)
 
 ---
 
