@@ -12,17 +12,11 @@ When stuck after 3 attempts, move the task to `## Blocked` and append a `STUCK.m
 (complete — see Done)
 
 ### 1. Menu bar UI
-- [ ] **M1** Replace placeholder status bar title with an SF Symbol (`waveform`).
-- [ ] **M2** Menu items: "Status: Idle", "Open Settings…", "Quit". Status updates from a published `AppState`.
-- [ ] **M3** Settings window (SwiftUI) with placeholders for hotkey, paste mode, cleanup model.
+(M1, M2, M3 done — see Done)
 
 ### 2. Fn-key hotkey
-- [ ] **H1** `FnKeyMonitor` class using `CGEventTap` listening on `flagsChanged` for the `.maskSecondaryFn` flag. Emits `pressed` / `released` events.
-- [ ] **H2** `HotkeyController` debounces single-hold vs. double-tap-lock per `project.md`:
-    - hold ≥ 280ms → dictate-while-held
-    - double-tap within 280ms → lock-on; next single tap toggles off
-- [ ] **H3** Permission probe: detect missing Input Monitoring / Accessibility and surface a prompt with a "Open System Settings" deep link.
-- [ ] **H4** Unit tests with a fake event source covering hold, double-tap, and the timing edges.
+(H1, H2, H4 done — see Done)
+- [ ] **H3** Permission probe surface: detect missing Input Monitoring and surface an in-app prompt with a "Open System Settings" deep link, instead of just a console error.
 
 ### 3. Audio capture
 - [ ] **A1** `AudioRecorder` using `AVAudioEngine` tap on the input node. Streams 16kHz mono Float32 chunks. Start/stop methods.
@@ -77,6 +71,12 @@ When stuck after 3 attempts, move the task to `## Blocked` and append a `STUCK.m
 - **B1** `swift build` green with menu bar skeleton (2026-05-10)
 - **B2** `swift test` green, 4 AppState tests pass (2026-05-10)
 - **B3** `scripts/build-app.sh` produces ad-hoc-signed `build/Voxflow.app` bundle with `LSUIElement` set (2026-05-10)
+- **M1** `NSStatusItem` displays the `waveform` SF Symbol as a template image (2026-05-10, in initial bootstrap)
+- **M2** Menu items "Status: …", "Open Settings…", "Quit" wired to AppState callback (2026-05-10, in initial bootstrap)
+- **M3** SwiftUI Settings window with backend, cleanup-model, paste-mode, and hotkey-timing controls bound to `PreferencesStore` (2026-05-10)
+- **H1** `FnKeyMonitor` CGEventTap on `flagsChanged` for `.maskSecondaryFn`, with `CGPreflightListenEventAccess` permission probe (2026-05-10)
+- **H2** `HotkeyController` state machine: hold-to-dictate (≥250ms) and double-tap-to-lock semantics, on injectable `VoxflowClock` (2026-05-10)
+- **H4** 6 deterministic `HotkeyControllerTests` covering hold, single tap, double-tap, second-press-held, out-of-window second tap, spurious release (2026-05-10)
 
 ---
 

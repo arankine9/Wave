@@ -4,11 +4,13 @@ import VoxflowCore
 @MainActor
 final class StatusItemController {
     private let appState: AppState
+    private let openSettings: () -> Void
     private var statusItem: NSStatusItem?
     private let statusMenuItem = NSMenuItem(title: "Status: Idle", action: nil, keyEquivalent: "")
 
-    init(appState: AppState) {
+    init(appState: AppState, openSettings: @escaping () -> Void) {
         self.appState = appState
+        self.openSettings = openSettings
     }
 
     func install() {
@@ -40,7 +42,7 @@ final class StatusItemController {
         let menu = NSMenu()
         menu.addItem(statusMenuItem)
         menu.addItem(.separator())
-        menu.addItem(NSMenuItem(title: "Open Settings…", action: #selector(openSettings), keyEquivalent: ","))
+        menu.addItem(NSMenuItem(title: "Open Settings…", action: #selector(openSettingsAction), keyEquivalent: ","))
         menu.addItem(.separator())
         let quit = NSMenuItem(title: "Quit Voxflow", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         quit.target = NSApp
@@ -51,8 +53,7 @@ final class StatusItemController {
         return menu
     }
 
-    @objc private func openSettings() {
-        NSApp.activate(ignoringOtherApps: true)
-        // Settings window wired in M3.
+    @objc private func openSettingsAction() {
+        openSettings()
     }
 }
