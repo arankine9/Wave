@@ -3,7 +3,7 @@ import AVFoundation
 import Foundation
 import Speech
 
-public final class AppleSpeechBackend: STTBackend {
+public final class AppleSpeechBackend: STTBackend, @unchecked Sendable {
     private let locale: Locale
 
     public init(locale: Locale = Locale(identifier: "en-US")) throws {
@@ -32,7 +32,7 @@ public final class AppleSpeechBackend: STTBackend {
     }
 }
 
-final class AppleSpeechSession: STTSession {
+final class AppleSpeechSession: STTSession, @unchecked Sendable {
     private let recognizer: SFSpeechRecognizer
     private let request: SFSpeechAudioBufferRecognitionRequest
     private let engine: AVAudioEngine

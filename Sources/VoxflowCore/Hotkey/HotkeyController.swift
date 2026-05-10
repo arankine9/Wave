@@ -15,7 +15,7 @@ public enum HotkeyEvent: Sendable, Equatable {
 ///   - press-and-hold → dictate while held
 ///   - double-tap → lock-on (continues recording until next single tap)
 ///   - tap while locked → stop and unlock
-public final class HotkeyController {
+public final class HotkeyController: @unchecked Sendable {
     private enum State {
         case idle
         case firstPressed                 // waiting hold-vs-tap

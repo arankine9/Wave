@@ -17,13 +17,13 @@ public struct STTPartial: Sendable, Equatable {
     }
 }
 
-public protocol STTBackend: AnyObject {
+public protocol STTBackend: AnyObject, Sendable {
     /// Begin a new dictation session. The returned session captures audio
     /// internally (so the backend can pick the format it needs).
     func startSession() async throws -> STTSession
 }
 
-public protocol STTSession: AnyObject {
+public protocol STTSession: AnyObject, Sendable {
     /// Async stream of partial transcripts. Closes on finalize/cancel.
     var partials: AsyncStream<STTPartial> { get }
 

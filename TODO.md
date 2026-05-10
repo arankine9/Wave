@@ -46,8 +46,7 @@ When stuck after 3 attempts, move the task to `## Blocked` and append a `STUCK.m
 - [ ] **P3** Test in a sandbox `NSTextField` window. (Manual; fold into smoke test.)
 
 ### 7. Orchestrator
-- [ ] **O1** State machine: idle → recording → transcribing → cleaning → pasting → idle. Cancellable mid-flight.
-- [ ] **O2** Wire hotkey → orchestrator → audio → stt → cleanup → paste.
+(O1, O2 done — see Done)
 - [ ] **O3** Status pill window (small floating SwiftUI panel) shows live waveform + raw transcript while recording.
 
 ### 8. Persistence & history
@@ -87,6 +86,8 @@ When stuck after 3 attempts, move the task to `## Blocked` and append a `STUCK.m
 - **C3** `SystemPrompt.text` (116 estimated tokens) plus `assertWithinBudget()` startup hard cap at 150 (2026-05-10)
 - **C5** `CleanupPipeline.run` ties gate + client; returns `CleanupResult` with `path`, `inputTokens`, `outputTokens`, `elapsedMs` (2026-05-10)
 - **P1** `ClipboardPaster` (NSPasteboard + Cmd+V via CGEvent) and `TypingPaster` (per-character Unicode key events) behind a `Paster` protocol + `PasterFactory` (2026-05-10)
+- **O1** `DictationOrchestrator` actor: idle → recording → transcribing → cleaning → pasting → idle, with `DictationTrace` timing capture and a pluggable `DictationLogger` (2026-05-10)
+- **O2** AppDelegate wires `FnKeyMonitor` → `HotkeyController` → `DictationOrchestrator` with `AppleSpeechBackend` + `OllamaClient` + `PasterFactory` from `PreferencesStore`. Asserts system-prompt budget at launch. (2026-05-10)
 
 ---
 

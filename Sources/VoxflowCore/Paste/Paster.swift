@@ -8,12 +8,12 @@ public enum PasterError: Error {
     case eventCreateFailed
 }
 
-public protocol Paster: AnyObject {
+public protocol Paster: AnyObject, Sendable {
     func paste(_ text: String) throws
 }
 
 /// Default paster: writes to NSPasteboard then synthesizes Cmd+V.
-public final class ClipboardPaster: Paster {
+public final class ClipboardPaster: Paster, @unchecked Sendable {
     private let pasteboard: NSPasteboard
     public init(pasteboard: NSPasteboard = .general) { self.pasteboard = pasteboard }
 
@@ -41,7 +41,7 @@ public final class ClipboardPaster: Paster {
 /// Alternate paster: types each character via synthetic key events. Slower
 /// but matches the source app's text-entry behavior more faithfully (e.g. in
 /// rich-text fields that strip clipboard formatting).
-public final class TypingPaster: Paster {
+public final class TypingPaster: Paster, @unchecked Sendable {
     public init() {}
 
     public func paste(_ text: String) throws {
