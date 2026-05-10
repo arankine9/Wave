@@ -18,18 +18,14 @@ When stuck after 3 attempts, move the task to `## Blocked` and append a `STUCK.m
 (H1, H2, H3, H4 done — see Done)
 
 ### 3. Audio capture
-(A1, A2 done — see Done)
-- [ ] **A3** Persist last 30s of audio to a ring buffer for debug capture (gated by a flag).
+(A1, A2, A3 done — see Done)
 
 ### 4. STT backend
-(S1, S2 done — see Done)
-- [ ] **S3** Backend selection via env var `VOXFLOW_STT_BACKEND` (`apple` default, `voxtral` future). PreferencesStore already reads it; expose a `STTBackendFactory` that returns the correct backend.
+(S1, S2, S3 done — see Done)
 - [ ] **S4** Latency probe test: feed 5 short clips, assert non-empty transcripts and `< 800ms` finalize. (Requires real audio fixtures; can be marked skip-on-CI.)
 
 ### 5. Cleanup pipeline (token-efficient)
-(C1, C2, C3, C4, C5 done — see Done)
-- [ ] **C6** Fixture corpus: `tests/fixtures/cleanup-pairs.json` with 30+ raw→cleaned pairs.
-- [ ] **C7** Identifier-spelling fixtures: 100% preservation when user spells out letter-by-letter.
+(C1–C7 done — see Done; full identifier-preservation gate verified, LLM-judge pass deferred until live model available)
 - [ ] **C2** `OllamaClient` HTTP streaming client. Default model `qwen2.5-coder:7b-instruct`. Configurable.
 - [ ] **C3** `SystemPrompt`: ≤ 150 tokens hard cap; startup assertion fails launch if exceeded. Token counter (cl100k or rough heuristic).
 - [ ] **C4** `IdentityCache`: SQLite-backed (or simple JSON for v1) cache; if raw == cleaned for last N=200 instances of a pattern, skip the LLM.
@@ -54,8 +50,7 @@ When stuck after 3 attempts, move the task to `## Blocked` and append a `STUCK.m
 - [ ] **G3** Idle CPU ≤ 1.5%, idle RAM ≤ 350MB excluding model weights.
 
 ### 10. Packaging & signing
-(K1, K2, K3, K4 done — see Done; needs an actual Developer ID identity + notary creds for a fully-stapled run.)
-- [ ] **K5** README documents install, first-run permissions (Mic, Accessibility, Input Monitoring), and how to swap cleanup model / STT backend.
+(K1–K5 done — see Done; needs an actual Developer ID identity + notary creds for a fully-stapled run.)
 
 ---
 
@@ -87,6 +82,12 @@ When stuck after 3 attempts, move the task to `## Blocked` and append a `STUCK.m
 - **O3** Floating `StatusPillController` (NSPanel + SwiftUI, ultraThinMaterial, status-bar level) shows live partial transcript + animated recording indicator; hides on idle, lingers 1.5s on errors (2026-05-10)
 - **D2** `HistoryWindowController` SwiftUI list backed by `HistoryLogger.recent(limit:)` with per-entry timing breakdown and SKIPPED/CLEANED badge (2026-05-10)
 - **H3/A2** `PermissionsProbe` (`AVCaptureDevice` + `CGPreflightListenEventAccess` + `AXIsProcessTrusted`) plus a Permissions section in Settings with an "Open System Settings" deep-link button per pane (2026-05-10)
+- **A3** `AudioRingBuffer` for the last N seconds of mic audio (off by default, capacity-gated) (2026-05-10)
+- **S3** `STTBackendFactory.make(for:)` driven by `PreferencesStore.value.sttBackend` (2026-05-10)
+- **C6** `tests/fixtures/cleanup-pairs.json` (31 entries) with raw → cleaned pairs and gate-decision expectations (2026-05-10)
+- **C7** `tests/fixtures/identifier-spelling.json` (10 entries) with letter-by-letter spellings; gate must never skip them (verified by `FixtureGateTests`) (2026-05-10)
+- **C8** `SkipGate` keyword list tightened (dropped ambiguous English words like `for`, `try`, `error`) and a single-letter-spelling heuristic added (2026-05-10)
+- **K5** README rewritten with first-run permissions table, env-var configuration table, model-swap recipe, and signed/notarized release walkthrough (2026-05-10)
 
 ---
 

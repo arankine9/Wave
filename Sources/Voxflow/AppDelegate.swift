@@ -41,10 +41,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let current = prefs.value
         let backend: STTBackend
         do {
-            switch current.sttBackend {
-            case .apple, .voxtral:
-                backend = try AppleSpeechBackend()
-            }
+            backend = try STTBackendFactory.make(for: current.sttBackend)
         } catch {
             appState.setStatus(.error("STT init: \(error)"))
             return
