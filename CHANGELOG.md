@@ -45,6 +45,8 @@ All notable iterations from the autonomous loop run on 2026-05-10.
 - Errors auto-fade from the menu bar to "Idle" after 3s instead of pinning.
 - Settings → General → "Launch at login" via SMAppService.mainApp; surfaces "approve in System Settings" when macOS asks the user to confirm.
 - `scripts/install.sh` walks an operator through everything that needs to be installed (Ollama + cleanup model + optional Voxtral venv) before first dictation. Read-only by default; `--yes` actually installs.
+- History panel: search field that filters by raw/cleaned/path, "Copy as JSON" exports the filtered set to the clipboard, "Reveal File" opens the JSONL in Finder.
+- Status bar: "Copy Diagnostics" (Cmd+D) drops a one-glance support snapshot — version, macOS, preferences, permissions, Ollama health, Voxtral env, history file path — onto the clipboard.
 
 ### Voxtral sidecar groundwork
 

@@ -30,7 +30,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             appState: appState,
             openSettings: { [weak settings] in settings?.show() },
             openHistory: { [weak historyWindow] in historyWindow?.show() },
-            runTestDictation: { [weak self] in self?.runTestDictation() }
+            runTestDictation: { [weak self] in self?.runTestDictation() },
+            copyDiagnostics: { [weak self] in
+                guard let self else { return }
+                Task { await Diagnostics.copyToClipboard(prefs: self.prefs) }
+            }
         )
         statusController?.install()
 

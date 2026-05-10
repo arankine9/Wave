@@ -7,6 +7,7 @@ final class StatusItemController {
     private let openSettings: () -> Void
     private let openHistory: () -> Void
     private let runTestDictation: () -> Void
+    private let copyDiagnostics: () -> Void
     private var statusItem: NSStatusItem?
     private let statusMenuItem = NSMenuItem(title: "Status: Idle", action: nil, keyEquivalent: "")
 
@@ -14,12 +15,14 @@ final class StatusItemController {
         appState: AppState,
         openSettings: @escaping () -> Void,
         openHistory: @escaping () -> Void,
-        runTestDictation: @escaping () -> Void
+        runTestDictation: @escaping () -> Void,
+        copyDiagnostics: @escaping () -> Void
     ) {
         self.appState = appState
         self.openSettings = openSettings
         self.openHistory = openHistory
         self.runTestDictation = runTestDictation
+        self.copyDiagnostics = copyDiagnostics
     }
 
     func install() {
@@ -54,6 +57,7 @@ final class StatusItemController {
         menu.addItem(NSMenuItem(title: "Test Dictation (paste sample)", action: #selector(runTestAction), keyEquivalent: "t"))
         menu.addItem(NSMenuItem(title: "Open Settings…", action: #selector(openSettingsAction), keyEquivalent: ","))
         menu.addItem(NSMenuItem(title: "Open History…", action: #selector(openHistoryAction), keyEquivalent: "h"))
+        menu.addItem(NSMenuItem(title: "Copy Diagnostics", action: #selector(copyDiagnosticsAction), keyEquivalent: "d"))
         menu.addItem(.separator())
         let quit = NSMenuItem(title: "Quit Voxflow", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         quit.target = NSApp
@@ -74,5 +78,9 @@ final class StatusItemController {
 
     @objc private func runTestAction() {
         runTestDictation()
+    }
+
+    @objc private func copyDiagnosticsAction() {
+        copyDiagnostics()
     }
 }
