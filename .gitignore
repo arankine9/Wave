@@ -14,3 +14,7 @@ STUCK.md.bak
 .claude/scheduled_tasks.lock
 .claude/scheduled_tasks.json
 Resources/AppIcon-source.png
+Tests/fixtures/audio/*.wav
+Tests/fixtures/audio/*.m4a
+Tests/fixtures/audio/*.txt
+build/latency-bench.log

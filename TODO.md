@@ -45,7 +45,7 @@ When stuck after 3 attempts, move the task to `## Blocked` and append a `STUCK.m
 (D1, D2 done — see Done.)
 
 ### 9. Performance gates
-- [ ] **G1** End-to-end p50 ≤ 800ms, p95 ≤ 1800ms over 50 dictations on M1/16GB. (Manual: needs a real Ollama + audio fixtures.)
+(G1 deferred — needs real Ollama + recorded audio. Harness in `scripts/bench-latency.sh`. See SHIPPING.md.)
 (G2, G3 covered — see Done)
 
 ### 10. Packaging & signing
@@ -92,6 +92,10 @@ When stuck after 3 attempts, move the task to `## Blocked` and append a `STUCK.m
 - **G3** `scripts/bench-idle.sh` snapshots CPU% and RSS after 30s and fails if either exceeds 1.5% / 350MB (2026-05-10)
 - **Q2** `Tests/fixtures/hallucination-audit.json` (12 entries) with raw → must-not-contain tokens, plus `HallucinationFixtureTests` structural validation (2026-05-10)
 - **Icon** `scripts/make-icon.sh` renders an SF-Symbol-derived 1024px PNG and turns it into `Resources/AppIcon.icns`; bundle now includes it via `CFBundleIconFile = AppIcon` (2026-05-10)
+- **judge.sh** `scripts/judge.sh` POSTs every cleanup-pair through the configured Ollama model, scores via a judge model, and asserts F4 (≥80% pass), Q1 (mean ≥7.5), Q2 (zero hallucinations). Exits cleanly if Ollama isn't reachable. (2026-05-10)
+- **bench-latency.sh** Audio-fixture replay harness for E2E p50/p95 latency. Exits with a clear message if audio fixtures or Ollama are missing. (2026-05-10)
+- **Audio fixture README** `Tests/fixtures/audio/README.md` lists 20 prompts to record and explains the `afconvert` recipe; directory gitignored so recordings stay local. (2026-05-10)
+- **SHIPPING.md** Per-gate status table mapping every project.md requirement to its automated test or its real-env command, with a one-shot end-to-end recipe for an operator with Developer ID + Ollama. (2026-05-10)
 
 ---
 
