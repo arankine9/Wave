@@ -79,21 +79,31 @@ hdiutil create \
     -fs HFS+ \
     "$RW_DMG" >/dev/null
 
+# If a stale /Volumes/Beck is hanging around, hdiutil silently mounts at
+# "/Volumes/Beck 1" and the AppleScript below — keyed on disk name $VOL —
+# binds to the wrong (read-only) volume and the .DS_Store never gets written.
+if [ -d "/Volumes/$VOL" ]; then
+    echo "[release] detaching stale /Volumes/$VOL before mounting build DMG"
+    hdiutil detach "/Volumes/$VOL" -force >/dev/null 2>&1 || true
+fi
+
 ATTACH_OUTPUT="$(hdiutil attach "$RW_DMG" -readwrite -noverify -noautoopen)"
 MOUNT_DIR="$(echo "$ATTACH_OUTPUT" | grep -E '/Volumes/' | sed -E 's/^.*(\/Volumes\/[^[:space:]].*)$/\1/' | head -1)"
 if [ -z "$MOUNT_DIR" ] || [ ! -d "$MOUNT_DIR" ]; then
     echo "[release] failed to locate mount point from hdiutil attach output" >&2
     exit 1
 fi
+# Use the *actual* mounted volume name in the AppleScript so the script keeps
+# working even if hdiutil disambiguated the mount with a " 1" suffix.
+MOUNT_VOL="$(basename "$MOUNT_DIR")"
 cleanup_mount() {
     [ -d "$MOUNT_DIR" ] && hdiutil detach "$MOUNT_DIR" -force >/dev/null 2>&1 || true
 }
 trap cleanup_mount EXIT
 
-BG_POSIX="$MOUNT_DIR/.background/background.tiff"
 if ! osascript <<APPLESCRIPT
 tell application "Finder"
-    tell disk "$VOL"
+    tell disk "$MOUNT_VOL"
         open
         set current view of container window to icon view
         set toolbar visible of container window to false
@@ -103,16 +113,14 @@ tell application "Finder"
         set arrangement of viewOptions to not arranged
         set icon size of viewOptions to 128
         try
-            set background picture of viewOptions to (POSIX file "$BG_POSIX" as alias)
+            set background picture of viewOptions to file ".background:background.tiff"
         on error errMsg number errNum
             log "background picture assignment failed: " & errMsg & " (" & errNum & ")"
         end try
         set position of item "$APP_NAME.app" of container window to {150, 200}
         set position of item "Applications" of container window to {450, 200}
-        close
-        open
         update without registering applications
-        delay 1
+        delay 5
         close
     end tell
 end tell
@@ -122,6 +130,12 @@ then
     exit 1
 fi
 
+# Finder writes .DS_Store asynchronously after `close`. Give it time to flush,
+# normalize permissions so the file is readable when the DMG is opened later,
+# then sync before detach.
+sleep 2
+chmod -Rf go-w "$MOUNT_DIR" 2>/dev/null || true
+sync
 sync
 hdiutil detach "$MOUNT_DIR" -force >/dev/null
 trap - EXIT
