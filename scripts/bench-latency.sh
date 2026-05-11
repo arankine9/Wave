@@ -1,6 +1,6 @@
 #!/bin/bash
 # End-to-end latency benchmark: replays the audio fixture corpus through
-# the same code path the runtime uses (audio file -> SFSpeechRecognizer ->
+# the same code path the runtime uses (audio file -> whisper.cpp ->
 # CleanupPipeline against Ollama) and reports p50 / p95 in ms. Asserts the
 # project.md P1/P2 bounds (p50 ≤ 800, p95 ≤ 1800).
 #

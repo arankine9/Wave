@@ -30,8 +30,6 @@
     <true/>
     <key>NSMicrophoneUsageDescription</key>
     <string>Voxflow listens to your microphone while you hold the dictation hotkey so it can transcribe what you say into your focused app.</string>
-    <key>NSSpeechRecognitionUsageDescription</key>
-    <string>Voxflow uses on-device speech recognition to convert your dictation into text.</string>
     <key>NSAppleEventsUsageDescription</key>
     <string>Voxflow uses synthetic key events to paste cleaned-up text into the focused application.</string>
 </dict>

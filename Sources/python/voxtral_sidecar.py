@@ -35,7 +35,7 @@ Install
     export VOXFLOW_VOXTRAL_PYTHON=~/.voxflow/venv/bin/python
 
 The Swift VoxtralBackend reads VOXFLOW_VOXTRAL_PYTHON to find this interpreter.
-If unset, it falls back to /usr/bin/env python3 then to AppleSpeechBackend.
+If unset, it falls back to the default whisper.cpp backend (no Python required).
 """
 from __future__ import annotations
 

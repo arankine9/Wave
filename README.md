@@ -10,7 +10,7 @@ The full spec lives in `project.md`. The active task list lives in `TODO.md`.
 - **Double-tap to lock.** Double-tap Fn to lock dictation on. Single tap to stop.
 - **Token-efficient.** Short, plain prose is pasted as-is with no LLM round-trip. Identifier spellings ("u s e r underscore i d") are routed through the cleanup model verbatim. Repeated identity passes are cached so frequent inputs skip the LLM entirely.
 - **Menu bar only.** No dock icon, no tray icon, no app-switcher entry — `LSUIElement = true`.
-- **Local everything.** On-device speech recognition (Apple Speech), local Ollama for cleanup. No data leaves the machine unless you point cleanup at a remote model.
+- **Local everything.** On-device transcription via [whisper.cpp](https://github.com/ggerganov/whisper.cpp) (Metal-accelerated), local Ollama for cleanup. Apple's Speech Recognition framework is never used — no "Voxflow would like to access Speech Recognition" prompt. No data leaves the machine unless you point cleanup at a remote model.
 
 ## Build from source
 
@@ -33,13 +33,29 @@ macOS will prompt for these the first time the app needs them. You can also see 
 
 If the menu bar icon shows "Status: Grant Input Monitoring in Privacy & Security", the CGEventTap couldn't register — flip the toggle in the Input Monitoring pane and quit/relaunch the app.
 
+## Speech-to-text setup (one-time)
+
+Voxflow ships its STT engine on top of [whisper.cpp](https://github.com/ggerganov/whisper.cpp). Install once and point it at a model:
+
+```bash
+brew install whisper-cpp
+mkdir -p ~/.voxflow/models
+curl -L -o ~/.voxflow/models/ggml-base.en.bin \
+    https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin
+# (run `bash scripts/install.sh` to do all of this in one shot)
+```
+
+`base.en` (~150 MB) is the default and runs in real-time on Apple Silicon. Swap in `small.en`, `medium.en`, or `large-v3` for higher accuracy by overriding `VOXFLOW_WHISPER_MODEL`.
+
 ## Configuration
 
 All preferences are bound to the Settings window and seeded from environment variables read at launch:
 
 | Env var | Default | Purpose |
 |---|---|---|
-| `VOXFLOW_STT_BACKEND` | `apple` | `apple` (on-device `SFSpeechRecognizer`) or `voxtral` (reserved for a future Voxtral-realtime backend; falls back to Apple) |
+| `VOXFLOW_STT_BACKEND` | `whisper-cpp` | `whisper-cpp` (default, ships with the app) or `voxtral` (Python sidecar — see `Sources/python/README.md`) |
+| `VOXFLOW_WHISPER_BIN` | auto-detected | Override path to `whisper-cli`. Defaults to `/opt/homebrew/bin/whisper-cli`. |
+| `VOXFLOW_WHISPER_MODEL` | `~/.voxflow/models/ggml-base.en.bin` | Override path to the GGML model file. |
 | `VOXFLOW_CLEANUP_MODEL` | `qwen2.5-coder:7b-instruct` | Ollama model id used for cleanup |
 | `VOXFLOW_OLLAMA_URL` | `http://127.0.0.1:11434` | Ollama base URL |
 | `VOXFLOW_PASTE_MODE` | `paste` | `paste` (clipboard + Cmd+V) or `type` (per-character synthetic events) |

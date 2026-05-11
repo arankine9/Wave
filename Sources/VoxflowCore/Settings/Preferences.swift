@@ -14,14 +14,14 @@ public enum PasteMode: String, Sendable, CaseIterable, Identifiable {
 }
 
 public enum STTBackendKind: String, Sendable, CaseIterable, Identifiable {
-    case apple
+    case whisperCpp = "whisper-cpp"
     case voxtral
 
     public var id: String { rawValue }
     public var displayName: String {
         switch self {
-        case .apple:   return "Apple Speech (on-device)"
-        case .voxtral: return "Voxtral local (future)"
+        case .whisperCpp: return "Whisper.cpp (local, default)"
+        case .voxtral:    return "Voxtral local (opt-in, heavier)"
         }
     }
 }
@@ -51,7 +51,7 @@ public struct Preferences: Sendable, Equatable {
     public var doubleTapWindowMs: Int
 
     public init(
-        sttBackend: STTBackendKind = .apple,
+        sttBackend: STTBackendKind = .whisperCpp,
         cleanupModel: String = "qwen2.5-coder:7b-instruct",
         ollamaURL: String = "http://127.0.0.1:11434",
         pasteMode: PasteMode = .paste,
