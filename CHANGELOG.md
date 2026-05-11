@@ -5,15 +5,15 @@ All notable iterations from the autonomous loop run on 2026-05-10.
 ## Unreleased
 
 ### Changed
-- **STT default switched to whisper.cpp; Apple Speech Recognition fully removed.** No more "Voxflow would like to access Speech Recognition" permission prompt. New `WhisperCppBackend` shells out to the Homebrew `whisper-cli` binary with a GGML model at `~/.voxflow/models/ggml-base.en.bin` (Metal-accelerated on Apple Silicon). `STTBackendKind` now offers `whisperCpp` (default) and `voxtral` (opt-in Python sidecar). `NSSpeechRecognitionUsageDescription` removed from `Info.plist`. New `VOXFLOW_WHISPER_BIN` and `VOXFLOW_WHISPER_MODEL` env vars override the defaults. `scripts/install.sh` provisions the binary and downloads the base.en model. End-to-end test (`WhisperCppBackendTests`) synthesizes a phrase via `say` + `afconvert` and asserts whisper.cpp transcribes it correctly — proving the new path works without ever touching Apple's Speech framework.
+- **STT default switched to whisper.cpp; Apple Speech Recognition fully removed.** No more "Beck would like to access Speech Recognition" permission prompt. New `WhisperCppBackend` shells out to the Homebrew `whisper-cli` binary with a GGML model at `~/.beck/models/ggml-base.en.bin` (Metal-accelerated on Apple Silicon). `STTBackendKind` now offers `whisperCpp` (default) and `voxtral` (opt-in Python sidecar). `NSSpeechRecognitionUsageDescription` removed from `Info.plist`. New `BECK_WHISPER_BIN` and `BECK_WHISPER_MODEL` env vars override the defaults. `scripts/install.sh` provisions the binary and downloads the base.en model. End-to-end test (`WhisperCppBackendTests`) synthesizes a phrase via `say` + `afconvert` and asserts whisper.cpp transcribes it correctly — proving the new path works without ever touching Apple's Speech framework.
 
 ## 2026-05-10
 
 ### Added
-- **Bootstrap.** Native Swift `Voxflow` exec + `VoxflowCore` library, NSStatusItem with `waveform` SF Symbol, `LSUIElement = true` (no dock icon), `scripts/build-app.sh` producing an ad-hoc-signed `.app`.
+- **Bootstrap.** Native Swift `Beck` exec + `BeckCore` library, NSStatusItem with `waveform` SF Symbol, `LSUIElement = true` (no dock icon), `scripts/build-app.sh` producing an ad-hoc-signed `.app`.
 - **SwiftUI Settings window.** Backend, cleanup model + URL, paste mode, hotkey timing, plus a Permissions section with one-click jumps to Privacy & Security panes.
-- **Fn-key hotkey.** `CGEventTap` on `flagsChanged` for `.maskSecondaryFn`, with `CGPreflightListenEventAccess` permission probe.
-- **Hotkey state machine.** Hold-to-dictate (≥ 250 ms) and double-tap-to-lock semantics on an injectable `VoxflowClock`. Six deterministic tests.
+- **Fn-key hotkey.** `NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged)` (plus a local twin) gated on `AXIsProcessTrusted()` — Accessibility-only, no Input Monitoring prompt. We still check `.maskSecondaryFn` on the underlying `cgEvent` so non-Fn function keys don't trigger the hotkey.
+- **Hotkey state machine.** Hold-to-dictate (≥ 250 ms) and double-tap-to-lock semantics on an injectable `BeckClock`. Six deterministic tests.
 - **`SkipGate`.** Token-based gate that bypasses the LLM for short, plain prose; tightened to drop ambiguous English keywords and added a single-letter-spelling heuristic.
 - **STT.** `STTBackend` async protocol; `AppleSpeechBackend` using `SFSpeechRecognizer` with on-device recognition; `STTBackendFactory` driven from preferences.
 - **Audio.** `AudioRecorder` (AVAudioEngine multi-subscriber tap) and `AudioRingBuffer` for debug captures.
@@ -23,13 +23,13 @@ All notable iterations from the autonomous loop run on 2026-05-10.
 - **Cleanup mode preference.** `auto` (default), `heuristic` (no LLM ever), `off` (paste raw).
 - **Paster.** `ClipboardPaster` (NSPasteboard + Cmd+V via CGEvent) and `TypingPaster` (per-character Unicode events) behind a `Paster` protocol + `PasterFactory`.
 - **Orchestrator.** `DictationOrchestrator` actor wiring hotkey → STT → cleanup → paste; emits `DictationTrace` with full timing breakdown.
-- **History.** `HistoryLogger` JSON-lines writer in `~/Library/Application Support/Voxflow/history.jsonl`; SwiftUI `HistoryWindowController` showing the last 50 entries with timing + SKIPPED/CLEANED badges.
+- **History.** `HistoryLogger` JSON-lines writer in `~/Library/Application Support/Beck/history.jsonl`; SwiftUI `HistoryWindowController` showing the last 50 entries with timing + SKIPPED/CLEANED badges.
 - **Status pill.** Floating SwiftUI panel (ultra-thin material, status-bar level, all spaces) with live partial transcript and pulsing recording indicator.
 - **Onboarding.** First-launch SwiftUI panel that explains and links to the three required Privacy & Security panes; auto-skipped when everything is already granted.
 - **"Test Dictation" menu item.** Runs a fixed sample through the cleanup pipeline + paster so the user can verify F5 without the mic.
-- **Permissions probe.** `PermissionsProbe` for Mic / Input Monitoring / Accessibility, with deep-link openers.
+- **Permissions probe.** `PermissionsProbe` for Mic / Accessibility, with deep-link openers.
 - **App icon.** `scripts/make-icon.sh` renders an SF-Symbol-derived 1024 px PNG and runs `iconutil` to produce `Resources/AppIcon.icns`.
-- **Release pipeline.** `scripts/release.sh` builds, codesigns with `VOXFLOW_SIGNING_IDENTITY`, notarizes via `notarytool`, staples, produces `dist/Voxflow.dmg`. Falls back to unsigned DMG cleanly when env is missing.
+- **Release pipeline.** `scripts/release.sh` builds, codesigns with `BECK_SIGNING_IDENTITY`, notarizes via `notarytool`, staples, produces `dist/Beck.dmg`. Falls back to unsigned DMG cleanly when env is missing.
 - **Smoke harness.** `scripts/smoke.sh` builds the .app, boots, asserts 5 s survival, TERMs.
 - **Idle benchmark.** `scripts/bench-idle.sh` snapshots CPU% and RSS after 30 s, asserting P4 (≤ 1.5%, ≤ 350 MB).
 - **Token-budget benchmark.** Offline test asserting cleanup input p95 ≤ 200 across the cleanup-pair fixture.
@@ -58,11 +58,11 @@ All notable iterations from the autonomous loop run on 2026-05-10.
 - `Sources/python/voxtral_sidecar.py` — JSONL stdin/stdout protocol. Loads Voxtral-Mini-4B-Realtime via `transformers`, accumulates audio, returns finals on demand. Friendly fatal error when deps are missing.
 - `Sources/python/requirements.txt` and `Sources/python/README.md` (install + standalone test recipe).
 - `VoxtralBackend` Swift class spawns the sidecar long-lived (one warm load per app launch), pipes 16 kHz int16 PCM via base64, parses ready/partial/final/error events.
-- `STTBackendFactory.voxtralAvailable()` precheck: only true when `VOXFLOW_VOXTRAL_PYTHON` points at an executable AND the script exists. Otherwise `STTBackendFactory.make(for: .voxtral)` falls back to Apple Speech transparently.
+- `STTBackendFactory.voxtralAvailable()` precheck: only true when `BECK_VOXTRAL_PYTHON` points at an executable AND the script exists. Otherwise `STTBackendFactory.make(for: .voxtral)` falls back to Apple Speech transparently.
 
 ### Deferred
 
-- **Live Voxtral end-to-end.** The Swift bridge and Python sidecar are wired; what's left is for the user to `pip install -r Sources/python/requirements.txt` and set `VOXFLOW_VOXTRAL_PYTHON` to point at the venv. Then Settings → Speech-to-text → Voxtral local activates the path.
+- **Live Voxtral end-to-end.** The Swift bridge and Python sidecar are wired; what's left is for the user to `pip install -r Sources/python/requirements.txt` and set `BECK_VOXTRAL_PYTHON` to point at the venv. Then Settings → Speech-to-text → Voxtral local activates the path.
 - **GRDB / SQLite history.** JSON-lines covers v1; swap when query needs grow.
 - **Audio waveform inside the status pill.** The pill currently shows the partial transcript and a pulsing recording dot; adding a level meter is a half-day task off `AudioRingBuffer`.
-- **Apple Developer signing + notarization.** Pipeline is in place; needs the operator to set `VOXFLOW_SIGNING_IDENTITY`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID` then `bash scripts/release.sh`.
+- **Apple Developer signing + notarization.** Pipeline is in place; needs the operator to set `BECK_SIGNING_IDENTITY`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID` then `bash scripts/release.sh`.

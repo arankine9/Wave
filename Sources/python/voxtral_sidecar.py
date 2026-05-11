@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Voxflow Voxtral STT sidecar.
+Beck Voxtral STT sidecar.
 
 Protocol: line-delimited JSON on stdin/stdout. Each line is one message.
 
@@ -29,12 +29,12 @@ Design notes
 
 Install
 -------
-    python3 -m venv ~/.voxflow/venv
-    source ~/.voxflow/venv/bin/activate
+    python3 -m venv ~/.beck/venv
+    source ~/.beck/venv/bin/activate
     pip install -r Sources/python/requirements.txt
-    export VOXFLOW_VOXTRAL_PYTHON=~/.voxflow/venv/bin/python
+    export BECK_VOXTRAL_PYTHON=~/.beck/venv/bin/python
 
-The Swift VoxtralBackend reads VOXFLOW_VOXTRAL_PYTHON to find this interpreter.
+The Swift VoxtralBackend reads BECK_VOXTRAL_PYTHON to find this interpreter.
 If unset, it falls back to the default whisper.cpp backend (no Python required).
 """
 from __future__ import annotations

@@ -1,6 +1,6 @@
 # Shipping checklist
 
-Voxflow's spec lives in `project.md`. The autonomous loop took the codebase from empty repo to a runnable native menu-bar app with a full dictation pipeline. Some final gates need a real environment (Apple Developer account, running Ollama, recorded audio). This file lists each gate and the exact command to flip it green.
+Beck's spec lives in `project.md`. The autonomous loop took the codebase from empty repo to a runnable native menu-bar app with a full dictation pipeline. Some final gates need a real environment (Apple Developer account, running Ollama, recorded audio). This file lists each gate and the exact command to flip it green.
 
 ## Status legend
 
@@ -41,8 +41,8 @@ Voxflow's spec lives in `project.md`. The autonomous loop took the codebase from
 
 | ID | Gate | Status | How to flip |
 |---|---|---|---|
-| K1 | `Voxflow.app` bundle | ✅ | `bash scripts/build-app.sh release` |
-| K2 | Developer-ID code signing | 🟡 | `export VOXFLOW_SIGNING_IDENTITY="Developer ID Application: …" && bash scripts/build-app.sh release` |
+| K1 | `Beck.app` bundle | ✅ | `bash scripts/build-app.sh release` |
+| K2 | Developer-ID code signing | 🟡 | `export BECK_SIGNING_IDENTITY="Developer ID Application: …" && bash scripts/build-app.sh release` |
 | K3 | Notarization | 🟡 | Set `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`, then `bash scripts/release.sh` |
 | K4 | Stapled, signed `.dmg` | 🟡 | Same as K3 (`scripts/release.sh` chains all four) |
 | K5 | README install + permissions docs | ✅ | `README.md` |
@@ -61,16 +61,16 @@ bash scripts/bench-idle.sh              # P4
 bash scripts/judge.sh                   # F4 + Q1 + Q2
 bash scripts/bench-latency.sh           # F3 + P1 + P2 (after recording fixtures)
 
-export VOXFLOW_SIGNING_IDENTITY="Developer ID Application: …"
+export BECK_SIGNING_IDENTITY="Developer ID Application: …"
 export APPLE_ID="you@example.com"
 export APPLE_APP_SPECIFIC_PASSWORD="abcd-efgh-ijkl-mnop"
 export APPLE_TEAM_ID="ABCDE12345"
 
-bash scripts/release.sh                 # K1 + K2 + K3 + K4 -> dist/Voxflow.dmg
+bash scripts/release.sh                 # K1 + K2 + K3 + K4 -> dist/Beck.dmg
 ```
 
 ## What's deliberately deferred
 
-- **Voxtral-Mini realtime backend (opt-in).** The whisper.cpp path covers v1; `STTBackendFactory` keeps a `voxtral` enum case that falls back to whisper.cpp when the Python sidecar isn't installed. Voxtral itself is wired (Swift bridge + Python sidecar) — what remains is for the user to `pip install -r Sources/python/requirements.txt` and set `VOXFLOW_VOXTRAL_PYTHON`.
+- **Voxtral-Mini realtime backend (opt-in).** The whisper.cpp path covers v1; `STTBackendFactory` keeps a `voxtral` enum case that falls back to whisper.cpp when the Python sidecar isn't installed. Voxtral itself is wired (Swift bridge + Python sidecar) — what remains is for the user to `pip install -r Sources/python/requirements.txt` and set `BECK_VOXTRAL_PYTHON`.
 - **GRDB / SQLite history.** JSON-lines covers v1; swap in GRDB once history queries grow beyond "last 50 entries."
 - **Audio waveform inside the status pill.** The pill currently shows the partial transcript and a pulsing recording dot; a full waveform needs the recorder to expose a level meter, which can plug into `AudioRingBuffer`.

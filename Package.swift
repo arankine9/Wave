@@ -2,26 +2,26 @@
 import PackageDescription
 
 let package = Package(
-    name: "Voxflow",
+    name: "Beck",
     platforms: [.macOS(.v14)],
     products: [
-        .executable(name: "Voxflow", targets: ["Voxflow"]),
-        .library(name: "VoxflowCore", targets: ["VoxflowCore"]),
+        .executable(name: "Beck", targets: ["Beck"]),
+        .library(name: "BeckCore", targets: ["BeckCore"]),
     ],
     targets: [
         .executableTarget(
-            name: "Voxflow",
-            dependencies: ["VoxflowCore"],
-            path: "Sources/Voxflow"
+            name: "Beck",
+            dependencies: ["BeckCore"],
+            path: "Sources/Beck"
         ),
         .target(
-            name: "VoxflowCore",
-            path: "Sources/VoxflowCore"
+            name: "BeckCore",
+            path: "Sources/BeckCore"
         ),
         .testTarget(
-            name: "VoxflowCoreTests",
-            dependencies: ["VoxflowCore"],
-            path: "Tests/VoxflowCoreTests"
+            name: "BeckCoreTests",
+            dependencies: ["BeckCore"],
+            path: "Tests/BeckCoreTests"
         ),
     ]
 )

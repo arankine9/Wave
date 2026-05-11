@@ -5,17 +5,17 @@
     <key>CFBundleDevelopmentRegion</key>
     <string>en</string>
     <key>CFBundleExecutable</key>
-    <string>Voxflow</string>
+    <string>Beck</string>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
     <key>CFBundleIdentifier</key>
-    <string>com.voxflow.app</string>
+    <string>com.beck.app</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
-    <string>Voxflow</string>
+    <string>Beck</string>
     <key>CFBundleDisplayName</key>
-    <string>Voxflow</string>
+    <string>Beck</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
@@ -29,8 +29,8 @@
     <key>NSHighResolutionCapable</key>
     <true/>
     <key>NSMicrophoneUsageDescription</key>
-    <string>Voxflow listens to your microphone while you hold the dictation hotkey so it can transcribe what you say into your focused app.</string>
+    <string>Beck listens to your microphone while you hold the dictation hotkey so it can transcribe what you say into your focused app.</string>
     <key>NSAppleEventsUsageDescription</key>
-    <string>Voxflow uses synthetic key events to paste cleaned-up text into the focused application.</string>
+    <string>Beck uses synthetic key events to paste cleaned-up text into the focused application.</string>
 </dict>
 </plist>
