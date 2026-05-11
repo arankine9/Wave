@@ -18,8 +18,11 @@ The full spec lives in `project.md`. The active task list lives in `TODO.md`.
 swift build              # SPM debug build
 swift test               # run unit tests (35 currently)
 scripts/build-app.sh     # produce build/Beck.app (ad-hoc signed)
-open build/Beck.app   # run; look in the menu bar near the battery
+open build/Beck.app      # run; look in the menu bar near the battery
+scripts/release.sh       # produce dist/Beck.dmg with drag-to-Applications layout
 ```
+
+Run Beck from `/Applications/Beck.app` (drag from the DMG) rather than directly from `build/`. macOS guards `~/Desktop`, `~/Downloads`, and `~/Documents` with TCC, and an Accessibility grant for a bundle living inside one of those folders can fail to stick. The DMG's branded background is generated at `Resources/dmg-background.tiff` (a HiDPI multi-resolution TIFF — 600×400 @1×, 1200×800 @2×); replace it with your own via `tiffutil -cathidpicheck bg-1x.png bg-2x.png -out Resources/dmg-background.tiff` to use custom artwork.
 
 ## First-run permissions
 

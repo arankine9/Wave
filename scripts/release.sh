@@ -56,14 +56,83 @@ if [ "$SIGNED" = "1" ]; then
 fi
 
 DMG="$DIST/$APP_NAME.dmg"
-echo "[release] building $DMG"
-rm -f "$DMG"
+RW_DMG="$DIST/$APP_NAME-rw.dmg"
+STAGING="$DIST/staging"
+VOL="$APP_NAME"
+
+echo "[release] building $DMG (drag-to-Applications layout)"
+
+bash "$ROOT/scripts/make-dmg-background.sh"
+
+rm -rf "$STAGING"
+mkdir -p "$STAGING/.background"
+cp -R "$APP" "$STAGING/"
+cp "$ROOT/Resources/dmg-background.tiff" "$STAGING/.background/background.tiff"
+ln -s /Applications "$STAGING/Applications"
+
+rm -f "$RW_DMG"
 hdiutil create \
-    -volname "$APP_NAME" \
-    -srcfolder "$APP" \
+    -volname "$VOL" \
+    -srcfolder "$STAGING" \
     -ov \
+    -format UDRW \
+    -fs HFS+ \
+    "$RW_DMG" >/dev/null
+
+ATTACH_OUTPUT="$(hdiutil attach "$RW_DMG" -readwrite -noverify -noautoopen)"
+MOUNT_DIR="$(echo "$ATTACH_OUTPUT" | grep -E '/Volumes/' | sed -E 's/^.*(\/Volumes\/[^[:space:]].*)$/\1/' | head -1)"
+if [ -z "$MOUNT_DIR" ] || [ ! -d "$MOUNT_DIR" ]; then
+    echo "[release] failed to locate mount point from hdiutil attach output" >&2
+    exit 1
+fi
+cleanup_mount() {
+    [ -d "$MOUNT_DIR" ] && hdiutil detach "$MOUNT_DIR" -force >/dev/null 2>&1 || true
+}
+trap cleanup_mount EXIT
+
+BG_POSIX="$MOUNT_DIR/.background/background.tiff"
+if ! osascript <<APPLESCRIPT
+tell application "Finder"
+    tell disk "$VOL"
+        open
+        set current view of container window to icon view
+        set toolbar visible of container window to false
+        set statusbar visible of container window to false
+        set the bounds of container window to {200, 200, 800, 600}
+        set viewOptions to the icon view options of container window
+        set arrangement of viewOptions to not arranged
+        set icon size of viewOptions to 128
+        try
+            set background picture of viewOptions to (POSIX file "$BG_POSIX" as alias)
+        on error errMsg number errNum
+            log "background picture assignment failed: " & errMsg & " (" & errNum & ")"
+        end try
+        set position of item "$APP_NAME.app" of container window to {150, 200}
+        set position of item "Applications" of container window to {450, 200}
+        close
+        open
+        update without registering applications
+        delay 1
+        close
+    end tell
+end tell
+APPLESCRIPT
+then
+    echo "[release] Finder scripting failed — grant Terminal Automation access for Finder in System Settings → Privacy & Security → Automation, then re-run." >&2
+    exit 1
+fi
+
+sync
+hdiutil detach "$MOUNT_DIR" -force >/dev/null
+trap - EXIT
+
+rm -f "$DMG"
+hdiutil convert "$RW_DMG" \
     -format UDZO \
-    "$DMG" >/dev/null
+    -imagekey zlib-level=9 \
+    -o "$DMG" >/dev/null
+rm -f "$RW_DMG"
+rm -rf "$STAGING"
 
 if [ "$SIGNED" = "1" ]; then
     echo "[release] codesigning DMG"
