@@ -1,6 +1,6 @@
 # Voxtral STT sidecar
 
-Python helper process that runs Voxtral-Mini-4B-Realtime locally and provides a second STT backend for Voxflow. Apple Speech is the default; Voxtral kicks in when the user picks `voxtral` in Settings (or sets `VOXFLOW_STT_BACKEND=voxtral`) AND the sidecar is reachable.
+Python helper process that runs Voxtral-Mini-4B-Realtime locally as an opt-in second STT backend for Voxflow. The default backend is whisper.cpp (a single Homebrew binary, no Python). Voxtral kicks in when the user picks `voxtral` in Settings (or sets `VOXFLOW_STT_BACKEND=voxtral`) AND the sidecar is reachable; otherwise the app stays on whisper.cpp.
 
 ## Why a sidecar
 
@@ -35,5 +35,5 @@ launchctl setenv VOXFLOW_VOXTRAL_PYTHON ~/.voxflow/venv/bin/python
 ## Why it might not start
 
 - `pip install` failed (no internet, missing build tools, no GPU). Run the install command manually and watch the output.
-- `VOXFLOW_VOXTRAL_PYTHON` isn't set or doesn't exist. The Swift side falls back to Apple Speech in that case and logs the reason in the menu-bar status.
+- `VOXFLOW_VOXTRAL_PYTHON` isn't set or doesn't exist. The Swift side falls back to whisper.cpp in that case and logs the reason in the menu-bar status.
 - Model download blocked. First launch fetches ~8 GB from Hugging Face; if you're behind a proxy, set `HF_HUB_ENDPOINT` accordingly before launching.

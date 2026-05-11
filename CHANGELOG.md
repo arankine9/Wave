@@ -2,6 +2,11 @@
 
 All notable iterations from the autonomous loop run on 2026-05-10.
 
+## Unreleased
+
+### Changed
+- **STT default switched to whisper.cpp; Apple Speech Recognition fully removed.** No more "Voxflow would like to access Speech Recognition" permission prompt. New `WhisperCppBackend` shells out to the Homebrew `whisper-cli` binary with a GGML model at `~/.voxflow/models/ggml-base.en.bin` (Metal-accelerated on Apple Silicon). `STTBackendKind` now offers `whisperCpp` (default) and `voxtral` (opt-in Python sidecar). `NSSpeechRecognitionUsageDescription` removed from `Info.plist`. New `VOXFLOW_WHISPER_BIN` and `VOXFLOW_WHISPER_MODEL` env vars override the defaults. `scripts/install.sh` provisions the binary and downloads the base.en model. End-to-end test (`WhisperCppBackendTests`) synthesizes a phrase via `say` + `afconvert` and asserts whisper.cpp transcribes it correctly — proving the new path works without ever touching Apple's Speech framework.
+
 ## 2026-05-10
 
 ### Added

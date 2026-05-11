@@ -65,6 +65,31 @@ else
 fi
 
 ###############################################################################
+say "Speech-to-text (whisper.cpp)"
+###############################################################################
+WHISPER_BIN="${VOXFLOW_WHISPER_BIN:-/opt/homebrew/bin/whisper-cli}"
+WHISPER_MODEL="${VOXFLOW_WHISPER_MODEL:-$HOME/.voxflow/models/ggml-base.en.bin}"
+if [ -x "$WHISPER_BIN" ]; then
+    ok "whisper-cli at $WHISPER_BIN"
+else
+    miss "whisper-cli not found at $WHISPER_BIN"
+    if command -v brew >/dev/null 2>&1; then
+        do_or_record "install whisper-cpp" brew install whisper-cpp
+    else
+        miss "Homebrew not installed — see https://brew.sh"
+    fi
+fi
+if [ -f "$WHISPER_MODEL" ]; then
+    ok "whisper model at $WHISPER_MODEL ($(du -h "$WHISPER_MODEL" | cut -f1))"
+else
+    miss "whisper model missing at $WHISPER_MODEL"
+    mkdir -p "$(dirname "$WHISPER_MODEL")"
+    do_or_record "download base.en model (~150 MB)" \
+        curl -L --fail -o "$WHISPER_MODEL" \
+        https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin
+fi
+
+###############################################################################
 say "Cleanup model (Ollama)"
 ###############################################################################
 if command -v ollama >/dev/null 2>&1; then

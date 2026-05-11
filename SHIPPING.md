@@ -71,6 +71,6 @@ bash scripts/release.sh                 # K1 + K2 + K3 + K4 -> dist/Voxflow.dmg
 
 ## What's deliberately deferred
 
-- **Voxtral-Mini realtime backend.** The Apple Speech path covers v1; `STTBackendFactory` keeps a `voxtral` enum case that falls back to Apple. Wiring a Python-sidecar Voxtral runner is a ~2 day task documented in TODO under section 4.
+- **Voxtral-Mini realtime backend (opt-in).** The whisper.cpp path covers v1; `STTBackendFactory` keeps a `voxtral` enum case that falls back to whisper.cpp when the Python sidecar isn't installed. Voxtral itself is wired (Swift bridge + Python sidecar) — what remains is for the user to `pip install -r Sources/python/requirements.txt` and set `VOXFLOW_VOXTRAL_PYTHON`.
 - **GRDB / SQLite history.** JSON-lines covers v1; swap in GRDB once history queries grow beyond "last 50 entries."
 - **Audio waveform inside the status pill.** The pill currently shows the partial transcript and a pulsing recording dot; a full waveform needs the recorder to expose a level meter, which can plug into `AudioRingBuffer`.

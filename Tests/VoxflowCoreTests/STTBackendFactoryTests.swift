@@ -12,18 +12,24 @@ final class STTBackendFactoryTests: XCTestCase {
         }
     }
 
-    func testFactoryReturnsAppleByDefault() throws {
-        let backend = try STTBackendFactory.make(for: .apple)
-        XCTAssertTrue(backend is AppleSpeechBackend)
+    func testFactoryReturnsWhisperByDefault() throws {
+        guard STTBackendFactory.whisperCppAvailable() else {
+            throw XCTSkip("whisper.cpp not installed; run `brew install whisper-cpp` and download a model to ~/.voxflow/models/")
+        }
+        let backend = try STTBackendFactory.make(for: .whisperCpp)
+        XCTAssertTrue(backend is WhisperCppBackend)
     }
 
-    func testFactoryFallsBackToAppleWhenVoxtralUnavailable() throws {
+    func testFactoryFallsBackToWhisperWhenVoxtralUnavailable() throws {
         let env = ProcessInfo.processInfo.environment
         guard env["VOXFLOW_VOXTRAL_PYTHON"] == nil else {
             throw XCTSkip("VOXFLOW_VOXTRAL_PYTHON is set; precheck would succeed")
         }
+        guard STTBackendFactory.whisperCppAvailable() else {
+            throw XCTSkip("whisper.cpp not installed for fallback target")
+        }
         let backend = try STTBackendFactory.make(for: .voxtral)
-        XCTAssertTrue(backend is AppleSpeechBackend,
-            "expected fallback to AppleSpeechBackend when sidecar isn't available")
+        XCTAssertTrue(backend is WhisperCppBackend,
+            "expected fallback to WhisperCppBackend when sidecar isn't available")
     }
 }

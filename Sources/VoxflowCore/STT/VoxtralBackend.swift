@@ -5,7 +5,7 @@ import Foundation
 /// Spawns the Python sidecar (`Sources/python/voxtral_sidecar.py`) and bridges
 /// audio from AVAudioEngine into it via the JSONL protocol. If the sidecar
 /// isn't installed or fails to load the model, `startSession` throws and the
-/// `STTBackendFactory` callers can fall back to Apple Speech.
+/// `STTBackendFactory` callers fall back to the default whisper.cpp backend.
 public final class VoxtralBackend: STTBackend, @unchecked Sendable {
     public struct Config: Sendable {
         public var pythonPath: String
