@@ -14,27 +14,36 @@ final class HotkeyControllerTests: XCTestCase {
         let (c, clock, log) = makeController()
 
         c.handlePressed()
-        XCTAssertEqual(log.events, [])
+        // Fn-down pre-arms immediately so audio capture has no startup lag.
+        XCTAssertEqual(log.events, [.armRecording])
 
         // Hold past threshold → start recording (hold reason).
         clock.advance(by: 0.30)
-        XCTAssertEqual(log.events, [.startRecording(reason: .hold)])
+        XCTAssertEqual(log.events, [.armRecording, .startRecording(reason: .hold)])
         XCTAssertTrue(c.isRecording)
 
         // Release → stop recording.
         c.handleReleased()
-        XCTAssertEqual(log.events, [.startRecording(reason: .hold), .stopRecording])
+        XCTAssertEqual(log.events, [
+            .armRecording,
+            .startRecording(reason: .hold),
+            .stopRecording
+        ])
         XCTAssertFalse(c.isRecording)
     }
 
-    func testQuickSingleTapDoesNothing() {
+    func testQuickSingleTapArmsThenDisarms() {
         let (c, clock, log) = makeController()
         c.handlePressed()
+        XCTAssertEqual(log.events, [.armRecording])
         clock.advance(by: 0.05)
         c.handleReleased()
-        // Wait past the double-tap window.
+        // During the double-tap window, the arm is still live (a second tap
+        // could lock-on without losing audio).
+        XCTAssertEqual(log.events, [.armRecording])
         clock.advance(by: 0.50)
-        XCTAssertEqual(log.events, [])
+        // Window expired without a second tap → tear down.
+        XCTAssertEqual(log.events, [.armRecording, .disarmRecording])
         XCTAssertFalse(c.isRecording)
     }
 
@@ -45,20 +54,25 @@ final class HotkeyControllerTests: XCTestCase {
         c.handlePressed()
         clock.advance(by: 0.05)
         c.handleReleased()
-        // Second press inside double-tap window.
+        // Second press inside double-tap window. The session armed by the
+        // first press is reused — no second `.armRecording`.
         clock.advance(by: 0.10)
         c.handlePressed()
         clock.advance(by: 0.05)
         c.handleReleased()
 
-        XCTAssertEqual(log.events, [.startRecording(reason: .locked)])
+        XCTAssertEqual(log.events, [.armRecording, .startRecording(reason: .locked)])
         XCTAssertTrue(c.isRecording)
 
-        // Subsequent tap unlocks.
+        // Subsequent tap unlocks. The unlocking press does NOT re-arm.
         c.handlePressed()
         clock.advance(by: 0.05)
         c.handleReleased()
-        XCTAssertEqual(log.events, [.startRecording(reason: .locked), .stopRecording])
+        XCTAssertEqual(log.events, [
+            .armRecording,
+            .startRecording(reason: .locked),
+            .stopRecording
+        ])
         XCTAssertFalse(c.isRecording)
     }
 
@@ -72,18 +86,22 @@ final class HotkeyControllerTests: XCTestCase {
         c.handlePressed()
         // Second press held past hold threshold: enters locked-on while still held.
         clock.advance(by: 0.30)
-        XCTAssertEqual(log.events, [.startRecording(reason: .locked)])
+        XCTAssertEqual(log.events, [.armRecording, .startRecording(reason: .locked)])
 
         // Release of second press does not stop locked recording.
         c.handleReleased()
-        XCTAssertEqual(log.events, [.startRecording(reason: .locked)])
+        XCTAssertEqual(log.events, [.armRecording, .startRecording(reason: .locked)])
         XCTAssertTrue(c.isRecording)
 
         // Click to unlock.
         c.handlePressed()
         clock.advance(by: 0.05)
         c.handleReleased()
-        XCTAssertEqual(log.events, [.startRecording(reason: .locked), .stopRecording])
+        XCTAssertEqual(log.events, [
+            .armRecording,
+            .startRecording(reason: .locked),
+            .stopRecording
+        ])
     }
 
     func testSecondPressOutsideWindowIsTreatedAsNewSingleTap() {
@@ -91,14 +109,18 @@ final class HotkeyControllerTests: XCTestCase {
         c.handlePressed()
         clock.advance(by: 0.05)
         c.handleReleased()
-        // Wait past the double-tap window.
+        // Wait past the double-tap window. First arm disarms.
         clock.advance(by: 0.40)
-        // Another quick tap by itself: no-op.
+        XCTAssertEqual(log.events, [.armRecording, .disarmRecording])
+        // Another quick tap by itself: arms and then disarms again.
         c.handlePressed()
         clock.advance(by: 0.05)
         c.handleReleased()
         clock.advance(by: 0.40)
-        XCTAssertEqual(log.events, [])
+        XCTAssertEqual(log.events, [
+            .armRecording, .disarmRecording,
+            .armRecording, .disarmRecording
+        ])
     }
 
     func testSpuriousReleaseInIdleIsIgnored() {

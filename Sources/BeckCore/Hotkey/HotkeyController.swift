@@ -1,8 +1,14 @@
 import Foundation
 
 public enum HotkeyEvent: Sendable, Equatable {
+    /// Fn-down arrived; pre-arm the STT session so audio capture starts
+    /// instantly. May or may not be followed by `.startRecording`.
+    case armRecording
     case startRecording(reason: Reason)
     case stopRecording
+    /// The press cycle ended without ever becoming a hold or a lock. The
+    /// orchestrator should tear down whatever it armed and discard audio.
+    case disarmRecording
 
     public enum Reason: String, Sendable {
         case hold
@@ -50,6 +56,10 @@ public final class HotkeyController: @unchecked Sendable {
         case .idle:
             state = .firstPressed
             scheduleHoldCheck()
+            // Pre-arm the STT session before we know whether this is a tap
+            // or a hold. If it turns out to be a single tap, `.disarmRecording`
+            // tears it back down (see windowExpired).
+            emit(.armRecording)
 
         case .awaitingDoubleTap:
             cancelWindowTimer()
@@ -140,6 +150,7 @@ public final class HotkeyController: @unchecked Sendable {
     private func windowExpired() {
         if case .awaitingDoubleTap = state {
             state = .idle
+            emit(.disarmRecording)
         }
         pendingWindowTimer = nil
     }

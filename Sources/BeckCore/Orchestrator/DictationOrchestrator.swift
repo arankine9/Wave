@@ -31,6 +31,11 @@ public actor DictationOrchestrator {
 
     private var activeSession: STTSession?
     private var activeStartedAt: TimeInterval = 0
+    /// Set true once `.startRecording` is received. Distinguishes pre-roll
+    /// (armed but not yet committed) from a real recording that should
+    /// finalize on stop. A `.stopRecording` without commit means the press
+    /// cycle ended without ever crossing the hold threshold — discard.
+    private var committed: Bool = false
 
     public init(
         backend: STTBackend,
@@ -50,29 +55,32 @@ public actor DictationOrchestrator {
 
     public func handle(_ event: HotkeyEvent) async {
         switch event {
+        case .armRecording:
+            await armSession()
         case .startRecording(let reason):
-            await startSession(reason: reason)
+            await commitSession(reason: reason)
         case .stopRecording:
             await finishSession()
+        case .disarmRecording:
+            await disarmSession()
         }
     }
 
     public func cancel() async {
         activeSession?.cancel()
         activeSession = nil
+        committed = false
         appState.setStatus(.idle)
     }
 
-    private func startSession(reason: HotkeyEvent.Reason) async {
+    /// Open the STT session (engine starts, audio begins streaming into the
+    /// session's buffer) without flipping the UI to "recording". Called on
+    /// Fn-down before we know whether the press is a tap or a hold.
+    private func armSession() async {
         guard activeSession == nil else { return }
-        appState.setStatus(.recording)
-        appState.setPartial("")
-        activeStartedAt = clock.now()
         do {
             let session = try await backend.startSession()
             activeSession = session
-            // Pump partials into AppState so the status pill can render them
-            // live. Detached so we don't block startSession's caller.
             let stream = session.partials
             let state = appState
             Task.detached {
@@ -84,7 +92,30 @@ public actor DictationOrchestrator {
             appState.setStatus(.error("STT start: \(error)"))
             activeSession = nil
         }
+    }
+
+    /// Confirm a real recording. Engine is already running from `.armRecording`;
+    /// we just flip UI state. Falls back to starting the session here if the
+    /// caller skipped the arm step (keeps tests and any non-Fn entry points
+    /// working).
+    private func commitSession(reason: HotkeyEvent.Reason) async {
+        if activeSession == nil {
+            await armSession()
+        }
+        guard activeSession != nil else { return }
+        committed = true
+        appState.setStatus(.recording)
+        appState.setPartial("")
+        activeStartedAt = clock.now()
         _ = reason
+    }
+
+    /// Press cycle ended without becoming a hold or lock. Tear down the
+    /// armed session and discard the captured audio.
+    private func disarmSession() async {
+        guard !committed, let session = activeSession else { return }
+        session.cancel()
+        activeSession = nil
     }
 
     private func finishSession() async {
@@ -93,6 +124,15 @@ public actor DictationOrchestrator {
             return
         }
         activeSession = nil
+
+        // `.stopRecording` without a prior `.startRecording` (commit) means
+        // the press cycle ended in pre-roll only. Discard, don't transcribe.
+        guard committed else {
+            session.cancel()
+            appState.setStatus(.idle)
+            return
+        }
+        committed = false
 
         var trace = DictationTrace()
 

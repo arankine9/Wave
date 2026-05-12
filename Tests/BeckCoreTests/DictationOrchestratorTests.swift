@@ -61,6 +61,56 @@ final class DictationOrchestratorTests: XCTestCase {
         XCTAssertEqual(client.callCount, 0)
     }
 
+    func testArmCommitStopPastesAndTraces() async throws {
+        let backend = MockSTTBackend(finalText: "hello world")
+        let pipeline = CleanupPipeline(client: StubCleanupClient(), model: "stub")
+        let paster = SpyPaster()
+        let appState = AppState()
+        let logger = TraceCollector()
+
+        let orch = DictationOrchestrator(
+            backend: backend,
+            cleanup: pipeline,
+            paster: paster,
+            appState: appState,
+            logger: logger
+        )
+
+        // Pre-arm on Fn-down, commit on hold-threshold, stop on release.
+        await orch.handle(.armRecording)
+        await orch.handle(.startRecording(reason: .hold))
+        await orch.handle(.stopRecording)
+
+        XCTAssertEqual(backend.sessionsStarted, 1, "armRecording opens exactly one session")
+        XCTAssertEqual(paster.pasted, ["hello world"])
+        XCTAssertEqual(logger.last?.finalText, "hello world")
+    }
+
+    func testArmThenDisarmDiscardsSession() async {
+        let backend = MockSTTBackend(finalText: "should not appear")
+        let pipeline = CleanupPipeline(client: StubCleanupClient(), model: "stub")
+        let paster = SpyPaster()
+        let appState = AppState()
+        let logger = TraceCollector()
+
+        let orch = DictationOrchestrator(
+            backend: backend,
+            cleanup: pipeline,
+            paster: paster,
+            appState: appState,
+            logger: logger
+        )
+
+        // Single tap: arm, then disarm without ever committing.
+        await orch.handle(.armRecording)
+        await orch.handle(.disarmRecording)
+
+        XCTAssertEqual(backend.sessionsStarted, 1)
+        XCTAssertEqual(paster.pasted, [])
+        XCTAssertNil(logger.last)
+        XCTAssertEqual(appState.status, .idle)
+    }
+
     func testStopWithoutStartIsNoop() async {
         let backend = MockSTTBackend(finalText: "")
         let pipeline = CleanupPipeline(client: StubCleanupClient(), model: "stub")
@@ -103,9 +153,13 @@ final class DictationOrchestratorTests: XCTestCase {
 
 private final class MockSTTBackend: STTBackend, @unchecked Sendable {
     let finalText: String
+    private let lock = NSLock()
+    private var _sessionsStarted = 0
+    var sessionsStarted: Int { lock.withLock { _sessionsStarted } }
     init(finalText: String) { self.finalText = finalText }
     func startSession() async throws -> STTSession {
-        MockSTTSession(finalText: finalText)
+        lock.withLock { _sessionsStarted += 1 }
+        return MockSTTSession(finalText: finalText)
     }
 }
 
