@@ -5,7 +5,7 @@ All notable iterations from the autonomous loop run on 2026-05-10.
 ## Unreleased
 
 ### Changed
-- **STT default switched to whisper.cpp; Apple Speech Recognition fully removed.** No more "Beck would like to access Speech Recognition" permission prompt. New `WhisperCppBackend` shells out to the Homebrew `whisper-cli` binary with a GGML model at `~/.beck/models/ggml-base.en.bin` (Metal-accelerated on Apple Silicon). `STTBackendKind` now offers `whisperCpp` (default) and `voxtral` (opt-in Python sidecar). `NSSpeechRecognitionUsageDescription` removed from `Info.plist`. New `BECK_WHISPER_BIN` and `BECK_WHISPER_MODEL` env vars override the defaults. `scripts/install.sh` provisions the binary and downloads the base.en model. End-to-end test (`WhisperCppBackendTests`) synthesizes a phrase via `say` + `afconvert` and asserts whisper.cpp transcribes it correctly — proving the new path works without ever touching Apple's Speech framework.
+- **STT swapped to FluidAudio's Parakeet TDT v2 (CoreML/ANE).** Single backend, English-only, highest recall on the M3 Pro. New `ParakeetBackend` records via AVAudioEngine with Apple's system voice processing enabled on the input node (AEC + noise/voice suppression), then transcribes a 16 kHz mono Float buffer through `AsrManager.transcribe(_:decoderState:)`. Model is downloaded lazily on the first `startSession()` and pre-warmed in the background at app launch. The backend picker, Whisper.cpp binary, GGML model, Voxtral Python sidecar, `STTBackendKind`/`STTBackendFactory`, and the `BECK_STT_BACKEND`/`BECK_WHISPER_*`/`BECK_VOXTRAL_PYTHON` env vars are all gone — `AppDelegate` instantiates `ParakeetBackend()` directly.
 
 ## 2026-05-10
 
@@ -49,20 +49,12 @@ All notable iterations from the autonomous loop run on 2026-05-10.
 - History rows have a Copy button.
 - Errors auto-fade from the menu bar to "Idle" after 3s instead of pinning.
 - Settings → General → "Launch at login" via SMAppService.mainApp; surfaces "approve in System Settings" when macOS asks the user to confirm.
-- `scripts/install.sh` walks an operator through everything that needs to be installed (Ollama + cleanup model + optional Voxtral venv) before first dictation. Read-only by default; `--yes` actually installs.
+- `scripts/install.sh` walks an operator through everything that needs to be installed (Ollama + cleanup model) before first dictation. Read-only by default; `--yes` actually installs.
 - History panel: search field that filters by raw/cleaned/path, "Copy as JSON" exports the filtered set to the clipboard, "Reveal File" opens the JSONL in Finder.
-- Status bar: "Copy Diagnostics" (Cmd+D) drops a one-glance support snapshot — version, macOS, preferences, permissions, Ollama health, Voxtral env, history file path — onto the clipboard.
-
-### Voxtral sidecar groundwork
-
-- `Sources/python/voxtral_sidecar.py` — JSONL stdin/stdout protocol. Loads Voxtral-Mini-4B-Realtime via `transformers`, accumulates audio, returns finals on demand. Friendly fatal error when deps are missing.
-- `Sources/python/requirements.txt` and `Sources/python/README.md` (install + standalone test recipe).
-- `VoxtralBackend` Swift class spawns the sidecar long-lived (one warm load per app launch), pipes 16 kHz int16 PCM via base64, parses ready/partial/final/error events.
-- `STTBackendFactory.voxtralAvailable()` precheck: only true when `BECK_VOXTRAL_PYTHON` points at an executable AND the script exists. Otherwise `STTBackendFactory.make(for: .voxtral)` falls back to Apple Speech transparently.
+- Status bar: "Copy Diagnostics" (Cmd+D) drops a one-glance support snapshot — version, macOS, preferences, permissions, Ollama health, history file path — onto the clipboard.
 
 ### Deferred
 
-- **Live Voxtral end-to-end.** The Swift bridge and Python sidecar are wired; what's left is for the user to `pip install -r Sources/python/requirements.txt` and set `BECK_VOXTRAL_PYTHON` to point at the venv. Then Settings → Speech-to-text → Voxtral local activates the path.
 - **GRDB / SQLite history.** JSON-lines covers v1; swap when query needs grow.
 - **Audio waveform inside the status pill.** The pill currently shows the partial transcript and a pulsing recording dot; adding a level meter is a half-day task off `AudioRingBuffer`.
 - **Apple Developer signing + notarization.** Pipeline is in place; needs the operator to set `BECK_SIGNING_IDENTITY`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID` then `bash scripts/release.sh`.

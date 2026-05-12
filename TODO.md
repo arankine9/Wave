@@ -95,7 +95,7 @@ Authoritative spec: `project.md`. Each loop iteration historically picked the to
 - **OllamaHealthProbe** `/api/tags` reachability + model-presence probe; Settings shows live health row with manual reprobe and per-state remediation text. 3 unit tests via in-process URLProtocol stub. (2026-05-10)
 - **History row Copy** Each row gets a Copy button with 1.5s "Copied" badge. (2026-05-10)
 - **Error auto-fade** AppState.setStatus(.error) auto-resets to .idle after 3s so the menu bar doesn't pin a stale error. (2026-05-10)
-- **VoxtralBackend** Swift + Python sidecar groundwork: long-lived process running `transformers`-loaded Voxtral-Mini-4B with JSONL stdin/stdout protocol; falls back to Apple Speech transparently when `BECK_VOXTRAL_PYTHON` isn't set. 3 STTBackendFactory tests. (2026-05-10)
+- **ParakeetBackend** FluidAudio + Parakeet TDT v2 (CoreML/ANE) replacing the prior backends; AVAudioEngine input with Apple system voice processing enabled; 16 kHz mono Float buffer; lazy model download on first session, background prewarm at app launch. `STTBackendFactory`, `STTBackendKind`, the backend picker, the Whisper.cpp binary, the GGML model, the Python sidecar, and `BECK_STT_BACKEND` / `BECK_WHISPER_*` / `BECK_VOXTRAL_PYTHON` env vars all removed. (2026-05-12)
 
 ---
 

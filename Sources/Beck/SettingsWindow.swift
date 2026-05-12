@@ -83,13 +83,6 @@ private struct SettingsView: View {
                     explainer: "Required to detect the global Fn-key hotkey and paste cleaned text."
                 )
             }
-            Section("Speech-to-text") {
-                Picker("Backend", selection: $snapshot.sttBackend) {
-                    ForEach(STTBackendKind.allCases) { backend in
-                        Text(backend.displayName).tag(backend)
-                    }
-                }
-            }
             Section("Cleanup") {
                 Picker("Mode", selection: $snapshot.cleanupMode) {
                     ForEach(CleanupMode.allCases) { mode in

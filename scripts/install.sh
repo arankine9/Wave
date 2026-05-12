@@ -11,13 +11,10 @@
 set -euo pipefail
 
 YES=0
-WANT_VOXTRAL=0
 WANT_LAUNCH_AT_LOGIN=0
 for arg in "$@"; do
     case "$arg" in
         --yes) YES=1 ;;
-        --voxtral) WANT_VOXTRAL=1 ;;
-        --no-voxtral) WANT_VOXTRAL=0 ;;
         --launch-at-login) WANT_LAUNCH_AT_LOGIN=1 ;;
         --help|-h)
             cat <<'EOF'
@@ -25,7 +22,6 @@ Beck installer.
 
 Flags:
   --yes               actually install missing pieces (default: report only)
-  --voxtral           also set up the Voxtral Python sidecar (large download)
   --launch-at-login   open the app once so it can register as a Login Item
 EOF
             exit 0 ;;
@@ -65,28 +61,15 @@ else
 fi
 
 ###############################################################################
-say "Speech-to-text (whisper.cpp)"
+say "Speech-to-text (Parakeet TDT v2 via FluidAudio)"
 ###############################################################################
-WHISPER_BIN="${BECK_WHISPER_BIN:-/opt/homebrew/bin/whisper-cli}"
-WHISPER_MODEL="${BECK_WHISPER_MODEL:-$HOME/.beck/models/ggml-base.en.bin}"
-if [ -x "$WHISPER_BIN" ]; then
-    ok "whisper-cli at $WHISPER_BIN"
+note "Parakeet models are downloaded automatically on first dictation."
+note "Cache lives at ~/Library/Application Support/FluidAudio/."
+PARAKEET_CACHE="$HOME/Library/Application Support/FluidAudio"
+if [ -d "$PARAKEET_CACHE" ]; then
+    ok "Parakeet cache present ($(du -sh "$PARAKEET_CACHE" 2>/dev/null | cut -f1))"
 else
-    miss "whisper-cli not found at $WHISPER_BIN"
-    if command -v brew >/dev/null 2>&1; then
-        do_or_record "install whisper-cpp" brew install whisper-cpp
-    else
-        miss "Homebrew not installed — see https://brew.sh"
-    fi
-fi
-if [ -f "$WHISPER_MODEL" ]; then
-    ok "whisper model at $WHISPER_MODEL ($(du -h "$WHISPER_MODEL" | cut -f1))"
-else
-    miss "whisper model missing at $WHISPER_MODEL"
-    mkdir -p "$(dirname "$WHISPER_MODEL")"
-    do_or_record "download base.en model (~150 MB)" \
-        curl -L --fail -o "$WHISPER_MODEL" \
-        https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin
+    note "Cache directory will be created on first dictation."
 fi
 
 ###############################################################################
@@ -133,32 +116,6 @@ if [ -d "$ROOT/build/Beck.app" ]; then
 else
     miss "build/Beck.app missing"
     do_or_record "build .app bundle" bash "$ROOT/scripts/build-app.sh" release
-fi
-
-###############################################################################
-if [ "$WANT_VOXTRAL" = "1" ]; then
-    say "Voxtral sidecar (optional)"
-    VENV="$HOME/.beck/venv"
-    if [ -x "$VENV/bin/python" ]; then
-        ok "venv at $VENV"
-    else
-        miss "venv missing"
-        do_or_record "create venv" python3 -m venv "$VENV"
-    fi
-    if [ -x "$VENV/bin/pip" ]; then
-        if "$VENV/bin/pip" show transformers >/dev/null 2>&1; then
-            ok "transformers installed in venv"
-        else
-            miss "Voxtral python deps missing"
-            do_or_record "install voxtral deps" "$VENV/bin/pip" install -r "$ROOT/Sources/python/requirements.txt"
-        fi
-    fi
-    if [ -n "${BECK_VOXTRAL_PYTHON:-}" ]; then
-        ok "BECK_VOXTRAL_PYTHON=$BECK_VOXTRAL_PYTHON"
-    else
-        miss "BECK_VOXTRAL_PYTHON not set"
-        note "Add to your shell profile: export BECK_VOXTRAL_PYTHON=\"$VENV/bin/python\""
-    fi
 fi
 
 ###############################################################################

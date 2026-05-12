@@ -71,6 +71,7 @@ bash scripts/release.sh                 # K1 + K2 + K3 + K4 -> dist/Beck.dmg
 
 ## What's deliberately deferred
 
-- **Voxtral-Mini realtime backend (opt-in).** The whisper.cpp path covers v1; `STTBackendFactory` keeps a `voxtral` enum case that falls back to whisper.cpp when the Python sidecar isn't installed. Voxtral itself is wired (Swift bridge + Python sidecar) — what remains is for the user to `pip install -r Sources/python/requirements.txt` and set `BECK_VOXTRAL_PYTHON`.
+- **Tiered model selector.** Parakeet TDT v2 covers v1; future work could expose a Settings option to swap in a multilingual or smaller variant based on Mac specs.
+- **Eager Parakeet download in onboarding.** Today the first hold-to-talk triggers the lazy download (pre-warmed in the background at launch); a progress UI inside the onboarding panel would surface the wait explicitly.
 - **GRDB / SQLite history.** JSON-lines covers v1; swap in GRDB once history queries grow beyond "last 50 entries."
 - **Audio waveform inside the status pill.** The pill currently shows the partial transcript and a pulsing recording dot; a full waveform needs the recorder to expose a level meter, which can plug into `AudioRingBuffer`.

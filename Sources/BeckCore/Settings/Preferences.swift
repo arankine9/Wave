@@ -13,19 +13,6 @@ public enum PasteMode: String, Sendable, CaseIterable, Identifiable {
     }
 }
 
-public enum STTBackendKind: String, Sendable, CaseIterable, Identifiable {
-    case whisperCpp = "whisper-cpp"
-    case voxtral
-
-    public var id: String { rawValue }
-    public var displayName: String {
-        switch self {
-        case .whisperCpp: return "Whisper.cpp (local, default)"
-        case .voxtral:    return "Voxtral local (opt-in, heavier)"
-        }
-    }
-}
-
 public enum CleanupMode: String, Sendable, CaseIterable, Identifiable {
     case auto       // try LLM, fall back to heuristic, fall back to raw
     case heuristic  // skip the LLM entirely; always use HeuristicCleanup
@@ -42,7 +29,6 @@ public enum CleanupMode: String, Sendable, CaseIterable, Identifiable {
 }
 
 public struct Preferences: Sendable, Equatable {
-    public var sttBackend: STTBackendKind
     public var cleanupModel: String
     public var ollamaURL: String
     public var pasteMode: PasteMode
@@ -51,7 +37,6 @@ public struct Preferences: Sendable, Equatable {
     public var doubleTapWindowMs: Int
 
     public init(
-        sttBackend: STTBackendKind = .whisperCpp,
         cleanupModel: String = "qwen2.5-coder:7b-instruct",
         ollamaURL: String = "http://127.0.0.1:11434",
         pasteMode: PasteMode = .paste,
@@ -59,7 +44,6 @@ public struct Preferences: Sendable, Equatable {
         holdThresholdMs: Int = 250,
         doubleTapWindowMs: Int = 280
     ) {
-        self.sttBackend = sttBackend
         self.cleanupModel = cleanupModel
         self.ollamaURL = ollamaURL
         self.pasteMode = pasteMode
@@ -70,9 +54,6 @@ public struct Preferences: Sendable, Equatable {
 
     public static func loadFromEnvironment(_ env: [String: String] = ProcessInfo.processInfo.environment) -> Preferences {
         var p = Preferences()
-        if let raw = env["BECK_STT_BACKEND"], let v = STTBackendKind(rawValue: raw) {
-            p.sttBackend = v
-        }
         if let raw = env["BECK_CLEANUP_MODEL"], !raw.isEmpty {
             p.cleanupModel = raw
         }

@@ -30,12 +30,15 @@ final class PermissionPromptAssistant {
             case .undetermined:
                 dismiss()
                 // The system permission alert (owned by tccd) takes focus while
-                // it's visible. Capture the requesting window so we can refocus
-                // it once the alert dismisses — otherwise an accessory-policy
-                // app like ours falls behind whatever was previously frontmost.
+                // it's visible. When it dismisses, macOS runs its own app-switch
+                // and prefers a regular-policy app over our accessory app — so
+                // whatever was previously frontmost (often Finder) wins unless
+                // we re-activate *after* that switch settles. A short delay
+                // before activating lets the OS finish its switch first.
                 let windowToRefocus = NSApp.keyWindow ?? NSApp.mainWindow
                 Task {
                     _ = await PermissionsProbe.requestMicrophone()
+                    try? await Task.sleep(nanoseconds: 250_000_000)
                     NSApp.activate(ignoringOtherApps: true)
                     if let window = windowToRefocus, window.isVisible {
                         window.makeKeyAndOrderFront(nil)

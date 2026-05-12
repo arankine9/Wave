@@ -37,7 +37,7 @@ enum Diagnostics {
             "macOS:          \(ProcessInfo.processInfo.operatingSystemVersionString)",
             "",
             "Preferences",
-            "  stt backend:    \(p.sttBackend.rawValue)",
+            "  stt backend:    parakeet-tdt-v2",
             "  cleanup mode:   \(p.cleanupMode.rawValue)",
             "  cleanup model:  \(p.cleanupModel)",
             "  ollama url:     \(p.ollamaURL)",
@@ -50,7 +50,6 @@ enum Diagnostics {
             "  accessibility:  \(perms.accessibility.rawValue)",
             "",
             "Ollama:           \(ollamaLine)",
-            "Voxtral env set:  \(ProcessInfo.processInfo.environment["BECK_VOXTRAL_PYTHON"] ?? "no")",
             "",
             "History file:     \(HistoryLogger.defaultURL().path)",
         ]

@@ -10,7 +10,8 @@ The full spec lives in `project.md`. The active task list lives in `TODO.md`.
 - **Double-tap to lock.** Double-tap Fn to lock dictation on. Single tap to stop.
 - **Token-efficient.** Short, plain prose is pasted as-is with no LLM round-trip. Identifier spellings ("u s e r underscore i d") are routed through the cleanup model verbatim. Repeated identity passes are cached so frequent inputs skip the LLM entirely.
 - **Menu bar only.** No dock icon, no tray icon, no app-switcher entry — `LSUIElement = true`.
-- **Local everything.** On-device transcription via [whisper.cpp](https://github.com/ggerganov/whisper.cpp) (Metal-accelerated), local Ollama for cleanup. Apple's Speech Recognition framework is never used — no "Beck would like to access Speech Recognition" prompt. No data leaves the machine unless you point cleanup at a remote model.
+- **Local everything.** On-device transcription via [FluidAudio](https://github.com/FluidInference/FluidAudio)'s Parakeet TDT v2 (Apple Neural Engine + CoreML), local Ollama for cleanup. Apple's Speech Recognition framework is never used — no "Beck would like to access Speech Recognition" prompt. No data leaves the machine unless you point cleanup at a remote model.
+- **Voice isolation.** Apple's system voice processing (acoustic echo cancellation + noise/voice suppression) runs on the input node *before* audio reaches Parakeet, so a podcast playing nearby or a second voice in the room doesn't bleed into the transcript.
 
 ## Build from source
 
@@ -35,19 +36,9 @@ macOS will prompt for these the first time the app needs them. You can also see 
 
 If the menu bar icon shows "Status: Grant Accessibility in Privacy & Security", the Fn monitor couldn't register — flip the toggle in the Accessibility pane and quit/relaunch the app. (No Input Monitoring grant is required: modifier-flag changes ride on the Accessibility pipeline, so macOS never prompts "would like to receive keystrokes from any application".)
 
-## Speech-to-text setup (one-time)
+## Speech-to-text setup
 
-Beck ships its STT engine on top of [whisper.cpp](https://github.com/ggerganov/whisper.cpp). Install once and point it at a model:
-
-```bash
-brew install whisper-cpp
-mkdir -p ~/.beck/models
-curl -L -o ~/.beck/models/ggml-base.en.bin \
-    https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin
-# (run `bash scripts/install.sh` to do all of this in one shot)
-```
-
-`base.en` (~150 MB) is the default and runs in real-time on Apple Silicon. Swap in `small.en`, `medium.en`, or `large-v3` for higher accuracy by overriding `BECK_WHISPER_MODEL`.
+Zero setup — Beck downloads the Parakeet TDT v2 model on first dictation and caches it under `~/Library/Application Support/FluidAudio/`. The first hold-to-talk pays the download cost (a few hundred MB once); subsequent dictations are warm.
 
 ## Configuration
 
@@ -55,9 +46,6 @@ All preferences are bound to the Settings window and seeded from environment var
 
 | Env var | Default | Purpose |
 |---|---|---|
-| `BECK_STT_BACKEND` | `whisper-cpp` | `whisper-cpp` (default, ships with the app) or `voxtral` (Python sidecar — see `Sources/python/README.md`) |
-| `BECK_WHISPER_BIN` | auto-detected | Override path to `whisper-cli`. Defaults to `/opt/homebrew/bin/whisper-cli`. |
-| `BECK_WHISPER_MODEL` | `~/.beck/models/ggml-base.en.bin` | Override path to the GGML model file. |
 | `BECK_CLEANUP_MODEL` | `qwen2.5-coder:7b-instruct` | Ollama model id used for cleanup |
 | `BECK_OLLAMA_URL` | `http://127.0.0.1:11434` | Ollama base URL |
 | `BECK_PASTE_MODE` | `paste` | `paste` (clipboard + Cmd+V) or `type` (per-character synthetic events) |
