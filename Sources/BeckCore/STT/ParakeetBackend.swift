@@ -36,6 +36,10 @@ public final class ParakeetBackend: STTBackend, @unchecked Sendable {
     private let asrManager: AsrManager
     private let state = LoadState()
     public let log: ParakeetLog
+    /// Fires from the audio render thread with mic RMS each tap (~85 ms at
+    /// 48 kHz / 4096 frames). Set once at startup; captured into each new
+    /// session created by `startSession()`.
+    public var levelObserver: (@Sendable (Float) -> Void)?
 
     public init(config: Config = Config()) {
         self.config = config
@@ -47,7 +51,12 @@ public final class ParakeetBackend: STTBackend, @unchecked Sendable {
         log.log("startSession: awaiting model load")
         try await ensureModelsLoaded()
         log.log("startSession: models loaded, opening AVAudioEngine session")
-        let session = try ParakeetSession(asrManager: asrManager, config: config, log: log)
+        let session = try ParakeetSession(
+            asrManager: asrManager,
+            config: config,
+            log: log,
+            levelObserver: levelObserver
+        )
         log.log("startSession: session active (voiceProcessing=\(config.enableVoiceProcessing))")
         return session
     }
@@ -128,7 +137,12 @@ final class ParakeetSession: STTSession, @unchecked Sendable {
     private let buffer = SampleBuffer()
     private let log: ParakeetLog
 
-    init(asrManager: AsrManager, config: ParakeetBackend.Config, log: ParakeetLog) throws {
+    init(
+        asrManager: AsrManager,
+        config: ParakeetBackend.Config,
+        log: ParakeetLog,
+        levelObserver: (@Sendable (Float) -> Void)? = nil
+    ) throws {
         self.asrManager = asrManager
         self.log = log
 
@@ -194,6 +208,9 @@ final class ParakeetSession: STTSession, @unchecked Sendable {
             if n <= 3 || n % 25 == 0 {
                 logRef.log("tap #\(n): \(frames) frames in")
             }
+            if let observer = levelObserver {
+                observer(Self.rms(buffer: audioBuffer))
+            }
             Self.tap(
                 audioBuffer: audioBuffer,
                 inFormat: inFormat,
@@ -257,6 +274,21 @@ final class ParakeetSession: STTSession, @unchecked Sendable {
         engine.inputNode.removeTap(onBus: 0)
         _ = buffer.drain()
         continuation.finish()
+    }
+
+    /// RMS of the first channel, Float32-only. Returns 0 if the buffer is
+    /// in a non-float format. Fast: single channel, no allocation.
+    static func rms(buffer: AVAudioPCMBuffer) -> Float {
+        guard let channelData = buffer.floatChannelData else { return 0 }
+        let n = Int(buffer.frameLength)
+        guard n > 0 else { return 0 }
+        let ch = channelData[0]
+        var sumSq: Float = 0
+        for i in 0..<n {
+            let s = ch[i]
+            sumSq += s * s
+        }
+        return (sumSq / Float(n)).squareRoot()
     }
 
     private static func tap(

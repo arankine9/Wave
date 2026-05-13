@@ -79,6 +79,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // terminal that launched the .app (or from Console.app).
         let verbose = ProcessInfo.processInfo.environment["BECK_PARAKEET_LOG"] == "1"
         let parakeet = ParakeetBackend(config: .init(verboseLog: verbose))
+        let state = appState
+        parakeet.levelObserver = { level in
+            state.setAudioLevel(level)
+        }
         self.parakeet = parakeet
         let backend: STTBackend = parakeet
         Task.detached(priority: .utility) {
