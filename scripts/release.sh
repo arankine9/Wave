@@ -1,9 +1,9 @@
 #!/bin/bash
-# Build, codesign, notarize, staple, and DMG-package Beck.
+# Build, codesign, notarize, staple, and DMG-package Wave.
 # Usage: scripts/release.sh
 #
 # Required env for a notarized release:
-#   BECK_SIGNING_IDENTITY  e.g. "Developer ID Application: Your Name (TEAMID)"
+#   WAVE_SIGNING_IDENTITY  e.g. "Developer ID Application: Your Name (TEAMID)"
 #   APPLE_ID                  Apple ID email
 #   APPLE_APP_SPECIFIC_PASSWORD  App-specific password
 #   APPLE_TEAM_ID             10-char team identifier
@@ -14,7 +14,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-APP_NAME="Beck"
+APP_NAME="Wave"
 DIST="$ROOT/dist"
 BUILD_DIR="$ROOT/build"
 APP="$BUILD_DIR/$APP_NAME.app"
@@ -22,8 +22,8 @@ APP="$BUILD_DIR/$APP_NAME.app"
 echo "[release] building app bundle"
 bash "$ROOT/scripts/build-app.sh" release
 
-if [ -z "${BECK_SIGNING_IDENTITY:-}" ]; then
-    echo "[release] BECK_SIGNING_IDENTITY not set; producing unsigned DMG"
+if [ -z "${WAVE_SIGNING_IDENTITY:-}" ]; then
+    echo "[release] WAVE_SIGNING_IDENTITY not set; producing unsigned DMG"
     SIGNED=0
 else
     SIGNED=1
@@ -79,8 +79,8 @@ hdiutil create \
     -fs HFS+ \
     "$RW_DMG" >/dev/null
 
-# If a stale /Volumes/Beck is hanging around, hdiutil silently mounts at
-# "/Volumes/Beck 1" and the AppleScript below — keyed on disk name $VOL —
+# If a stale /Volumes/Wave is hanging around, hdiutil silently mounts at
+# "/Volumes/Wave 1" and the AppleScript below — keyed on disk name $VOL —
 # binds to the wrong (read-only) volume and the .DS_Store never gets written.
 if [ -d "/Volumes/$VOL" ]; then
     echo "[release] detaching stale /Volumes/$VOL before mounting build DMG"
@@ -150,7 +150,7 @@ rm -rf "$STAGING"
 
 if [ "$SIGNED" = "1" ]; then
     echo "[release] codesigning DMG"
-    codesign --sign "$BECK_SIGNING_IDENTITY" --options runtime "$DMG"
+    codesign --sign "$WAVE_SIGNING_IDENTITY" --options runtime "$DMG"
 
     if [ -n "${APPLE_ID:-}" ] && [ -n "${APPLE_APP_SPECIFIC_PASSWORD:-}" ] && [ -n "${APPLE_TEAM_ID:-}" ]; then
         echo "[release] notarizing DMG"

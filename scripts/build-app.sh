@@ -1,11 +1,11 @@
 #!/bin/bash
-# Build a runnable Beck.app bundle from the SPM executable.
+# Build a runnable Wave.app bundle from the SPM executable.
 # Usage: scripts/build-app.sh [debug|release]
 set -euo pipefail
 
 CONFIG="${1:-release}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-APP_NAME="Beck"
+APP_NAME="Wave"
 APP_DIR="$ROOT/build/$APP_NAME.app"
 BIN="$ROOT/.build/${CONFIG}/$APP_NAME"
 
@@ -32,16 +32,16 @@ if [ -f "$ROOT/Resources/AppIcon.icns" ]; then
 fi
 
 # Optional code-signing.
-if [ -n "${BECK_SIGNING_IDENTITY:-}" ]; then
-    echo "[build-app] codesigning with identity: $BECK_SIGNING_IDENTITY"
+if [ -n "${WAVE_SIGNING_IDENTITY:-}" ]; then
+    echo "[build-app] codesigning with identity: $WAVE_SIGNING_IDENTITY"
     codesign --force --options runtime \
-        --entitlements "$ROOT/Resources/Beck.entitlements" \
-        --sign "$BECK_SIGNING_IDENTITY" \
+        --entitlements "$ROOT/Resources/Wave.entitlements" \
+        --sign "$WAVE_SIGNING_IDENTITY" \
         "$APP_DIR"
 else
-    echo "[build-app] no BECK_SIGNING_IDENTITY set; ad-hoc signing for local run"
+    echo "[build-app] no WAVE_SIGNING_IDENTITY set; ad-hoc signing for local run"
     codesign --force --sign - \
-        --entitlements "$ROOT/Resources/Beck.entitlements" \
+        --entitlements "$ROOT/Resources/Wave.entitlements" \
         "$APP_DIR" || true
 fi
 

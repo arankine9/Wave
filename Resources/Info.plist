@@ -5,17 +5,17 @@
     <key>CFBundleDevelopmentRegion</key>
     <string>en</string>
     <key>CFBundleExecutable</key>
-    <string>Beck</string>
+    <string>Wave</string>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
     <key>CFBundleIdentifier</key>
-    <string>com.beck.app</string>
+    <string>com.wave.app</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
-    <string>Beck</string>
+    <string>Wave</string>
     <key>CFBundleDisplayName</key>
-    <string>Beck</string>
+    <string>Wave</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
@@ -29,8 +29,8 @@
     <key>NSHighResolutionCapable</key>
     <true/>
     <key>NSMicrophoneUsageDescription</key>
-    <string>Beck listens to your microphone while you hold the dictation hotkey so it can transcribe what you say into your focused app.</string>
+    <string>Wave listens to your microphone while you hold the dictation hotkey so it can transcribe what you say into your focused app.</string>
     <key>NSAppleEventsUsageDescription</key>
-    <string>Beck uses synthetic key events to paste cleaned-up text into the focused application.</string>
+    <string>Wave uses synthetic key events to paste cleaned-up text into the focused application.</string>
 </dict>
 </plist>

@@ -1,5 +1,5 @@
 #!/bin/bash
-# One-shot Beck setup. Detects what's missing, prints exact next steps,
+# One-shot Wave setup. Detects what's missing, prints exact next steps,
 # and offers to install when --yes is supplied. Idempotent: safe to re-run.
 #
 # Without --yes the script is read-only: it prints a status report and the
@@ -18,7 +18,7 @@ for arg in "$@"; do
         --launch-at-login) WANT_LAUNCH_AT_LOGIN=1 ;;
         --help|-h)
             cat <<'EOF'
-Beck installer.
+Wave installer.
 
 Flags:
   --yes               actually install missing pieces (default: report only)
@@ -111,10 +111,10 @@ note "The app's Settings → Permissions section deep-links each pane."
 ###############################################################################
 say "Build"
 ###############################################################################
-if [ -d "$ROOT/build/Beck.app" ]; then
-    ok "build/Beck.app exists ($(stat -f '%Sm' "$ROOT/build/Beck.app"))"
+if [ -d "$ROOT/build/Wave.app" ]; then
+    ok "build/Wave.app exists ($(stat -f '%Sm' "$ROOT/build/Wave.app"))"
 else
-    miss "build/Beck.app missing"
+    miss "build/Wave.app missing"
     do_or_record "build .app bundle" bash "$ROOT/scripts/build-app.sh" release
 fi
 
@@ -122,7 +122,7 @@ fi
 say "Launch at login (optional)"
 ###############################################################################
 if [ "$WANT_LAUNCH_AT_LOGIN" = "1" ]; then
-    note "Open Beck once — Settings → General → 'Launch at login' is a one-click toggle."
+    note "Open Wave once — Settings → General → 'Launch at login' is a one-click toggle."
 fi
 
 ###############################################################################

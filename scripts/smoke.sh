@@ -1,12 +1,12 @@
 #!/bin/bash
-# Smoke test: builds Beck.app, launches it, gives it a few seconds to
+# Smoke test: builds Wave.app, launches it, gives it a few seconds to
 # install the menu bar item and finish startup, then quits cleanly. Fails
 # if the process crashes during boot or refuses to terminate.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-APP="$ROOT/build/Beck.app"
-BIN="$APP/Contents/MacOS/Beck"
+APP="$ROOT/build/Wave.app"
+BIN="$APP/Contents/MacOS/Wave"
 
 echo "[smoke] building .app"
 bash "$ROOT/scripts/build-app.sh" debug >/dev/null

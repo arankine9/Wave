@@ -20,7 +20,7 @@ if [ -f "$TARGET" ]; then
 fi
 
 echo "[dmg-bg] generating $TARGET"
-TMP_DIR="$(mktemp -d -t beckdmgbg)"
+TMP_DIR="$(mktemp -d -t wavedmgbg)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 TMP_SWIFT="$TMP_DIR/render.swift"
 PNG_1X="$TMP_DIR/bg-1x.png"
@@ -66,7 +66,7 @@ func render(scale: CGFloat, to url: URL) throws {
         .foregroundColor: inkColor,
         .kern: 0.2 * scale
     ]
-    let attrCaption = NSAttributedString(string: "Drag Beck to Applications", attributes: captionAttrs)
+    let attrCaption = NSAttributedString(string: "Drag Wave to Applications", attributes: captionAttrs)
     let capSize = attrCaption.size()
     attrCaption.draw(at: NSPoint(
         x: (CGFloat(W) - capSize.width) / 2,
@@ -90,7 +90,7 @@ func render(scale: CGFloat, to url: URL) throws {
         .font: hintFont,
         .foregroundColor: mutedColor
     ]
-    let attrHint = NSAttributedString(string: "Drop the Beck icon onto the Applications folder", attributes: hintAttrs)
+    let attrHint = NSAttributedString(string: "Drop the Wave icon onto the Applications folder", attributes: hintAttrs)
     let hintSize = attrHint.size()
     attrHint.draw(at: NSPoint(
         x: (CGFloat(W) - hintSize.width) / 2,

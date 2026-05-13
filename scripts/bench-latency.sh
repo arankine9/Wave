@@ -5,7 +5,7 @@
 # project.md P1/P2 bounds (p50 ≤ 800, p95 ≤ 1800).
 #
 # Requirements:
-#   - Ollama running at $BECK_OLLAMA_URL with $BECK_CLEANUP_MODEL pulled
+#   - Ollama running at $WAVE_OLLAMA_URL with $WAVE_CLEANUP_MODEL pulled
 #   - Audio fixtures in Tests/fixtures/audio/*.wav (record per the README)
 set -euo pipefail
 
@@ -18,7 +18,7 @@ if [ ! -d "$AUDIO_DIR" ] || [ -z "$(ls -A "$AUDIO_DIR"/*.wav 2>/dev/null || true
     exit 2
 fi
 
-OLLAMA_URL="${BECK_OLLAMA_URL:-http://127.0.0.1:11434}"
+OLLAMA_URL="${WAVE_OLLAMA_URL:-http://127.0.0.1:11434}"
 if ! curl -sf "$OLLAMA_URL/api/tags" >/dev/null; then
     echo "[bench-latency] ollama not reachable at $OLLAMA_URL"
     exit 2

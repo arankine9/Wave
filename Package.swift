@@ -2,38 +2,38 @@
 import PackageDescription
 
 let package = Package(
-    name: "Beck",
+    name: "Wave",
     platforms: [.macOS(.v14)],
     products: [
-        .executable(name: "Beck", targets: ["Beck"]),
-        .executable(name: "beck-record", targets: ["BeckRecord"]),
-        .library(name: "BeckCore", targets: ["BeckCore"]),
+        .executable(name: "Wave", targets: ["Wave"]),
+        .executable(name: "wave-record", targets: ["WaveRecord"]),
+        .library(name: "WaveCore", targets: ["WaveCore"]),
     ],
     dependencies: [
         .package(url: "https://github.com/FluidInference/FluidAudio.git", from: "0.14.5"),
     ],
     targets: [
         .executableTarget(
-            name: "Beck",
-            dependencies: ["BeckCore"],
-            path: "Sources/Beck"
+            name: "Wave",
+            dependencies: ["WaveCore"],
+            path: "Sources/Wave"
         ),
         .executableTarget(
-            name: "BeckRecord",
-            dependencies: ["BeckCore"],
-            path: "Sources/BeckRecord"
+            name: "WaveRecord",
+            dependencies: ["WaveCore"],
+            path: "Sources/WaveRecord"
         ),
         .target(
-            name: "BeckCore",
+            name: "WaveCore",
             dependencies: [
                 .product(name: "FluidAudio", package: "FluidAudio"),
             ],
-            path: "Sources/BeckCore"
+            path: "Sources/WaveCore"
         ),
         .testTarget(
-            name: "BeckCoreTests",
-            dependencies: ["BeckCore"],
-            path: "Tests/BeckCoreTests"
+            name: "WaveCoreTests",
+            dependencies: ["WaveCore"],
+            path: "Tests/WaveCoreTests"
         ),
     ]
 )

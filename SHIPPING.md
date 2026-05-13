@@ -1,6 +1,6 @@
 # Shipping checklist
 
-Beck's spec lives in `project.md`. The autonomous loop took the codebase from empty repo to a runnable native menu-bar app with a full dictation pipeline. Some final gates need a real environment (Apple Developer account, running Ollama, recorded audio). This file lists each gate and the exact command to flip it green.
+Wave's spec lives in `project.md`. The autonomous loop took the codebase from empty repo to a runnable native menu-bar app with a full dictation pipeline. Some final gates need a real environment (Apple Developer account, running Ollama, recorded audio). This file lists each gate and the exact command to flip it green.
 
 ## Status legend
 
@@ -41,8 +41,8 @@ Beck's spec lives in `project.md`. The autonomous loop took the codebase from em
 
 | ID | Gate | Status | How to flip |
 |---|---|---|---|
-| K1 | `Beck.app` bundle | ✅ | `bash scripts/build-app.sh release` |
-| K2 | Developer-ID code signing | 🟡 | `export BECK_SIGNING_IDENTITY="Developer ID Application: …" && bash scripts/build-app.sh release` |
+| K1 | `Wave.app` bundle | ✅ | `bash scripts/build-app.sh release` |
+| K2 | Developer-ID code signing | 🟡 | `export WAVE_SIGNING_IDENTITY="Developer ID Application: …" && bash scripts/build-app.sh release` |
 | K3 | Notarization | 🟡 | Set `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`, then `bash scripts/release.sh` |
 | K4 | Stapled, signed `.dmg` | 🟡 | Same as K3 (`scripts/release.sh` chains all four) |
 | K5 | README install + permissions docs | ✅ | `README.md` |
@@ -61,12 +61,12 @@ bash scripts/bench-idle.sh              # P4
 bash scripts/judge.sh                   # F4 + Q1 + Q2
 bash scripts/bench-latency.sh           # F3 + P1 + P2 (after recording fixtures)
 
-export BECK_SIGNING_IDENTITY="Developer ID Application: …"
+export WAVE_SIGNING_IDENTITY="Developer ID Application: …"
 export APPLE_ID="you@example.com"
 export APPLE_APP_SPECIFIC_PASSWORD="abcd-efgh-ijkl-mnop"
 export APPLE_TEAM_ID="ABCDE12345"
 
-bash scripts/release.sh                 # K1 + K2 + K3 + K4 -> dist/Beck.dmg
+bash scripts/release.sh                 # K1 + K2 + K3 + K4 -> dist/Wave.dmg
 ```
 
 ## What's deliberately deferred

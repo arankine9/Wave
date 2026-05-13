@@ -9,15 +9,15 @@
 #   Q1  LLM-as-judge mean score ≥ 7.5 / 10
 #   Q2  zero hallucinated tokens across the audit fixture
 #
-# Requirements: Ollama daemon reachable at $BECK_OLLAMA_URL with the
+# Requirements: Ollama daemon reachable at $WAVE_OLLAMA_URL with the
 # cleanup model and the judge model both pulled. `jq` for JSON munging.
 #
 # Usage: scripts/judge.sh [--cleanup MODEL] [--judge MODEL]
 set -euo pipefail
 
-CLEANUP_MODEL="${BECK_CLEANUP_MODEL:-qwen2.5-coder:7b-instruct}"
-JUDGE_MODEL="${BECK_JUDGE_MODEL:-qwen2.5:7b-instruct}"
-OLLAMA_URL="${BECK_OLLAMA_URL:-http://127.0.0.1:11434}"
+CLEANUP_MODEL="${WAVE_CLEANUP_MODEL:-qwen2.5-coder:7b-instruct}"
+JUDGE_MODEL="${WAVE_JUDGE_MODEL:-qwen2.5:7b-instruct}"
+OLLAMA_URL="${WAVE_OLLAMA_URL:-http://127.0.0.1:11434}"
 
 while [ $# -gt 0 ]; do
     case "$1" in

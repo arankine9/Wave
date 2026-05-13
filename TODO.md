@@ -1,4 +1,4 @@
-# Beck (native) — TODO
+# Wave (native) — TODO
 
 **Status: spec complete (2026-05-10).** Every requirement in `project.md` has a green test, a runnable script, or a documented manual gate in `SHIPPING.md`. The remaining items below need user-supplied resources (Apple Developer ID for notarization, recorded audio for end-to-end latency, a live Ollama for the LLM judge).
 
@@ -48,12 +48,12 @@ Authoritative spec: `project.md`. Each loop iteration historically picked the to
 
 - **B1** `swift build` green with menu bar skeleton (2026-05-10)
 - **B2** `swift test` green, 4 AppState tests pass (2026-05-10)
-- **B3** `scripts/build-app.sh` produces ad-hoc-signed `build/Beck.app` bundle with `LSUIElement` set (2026-05-10)
+- **B3** `scripts/build-app.sh` produces ad-hoc-signed `build/Wave.app` bundle with `LSUIElement` set (2026-05-10)
 - **M1** `NSStatusItem` displays the `waveform` SF Symbol as a template image (2026-05-10, in initial bootstrap)
 - **M2** Menu items "Status: …", "Open Settings…", "Quit" wired to AppState callback (2026-05-10, in initial bootstrap)
 - **M3** SwiftUI Settings window with backend, cleanup-model, paste-mode, and hotkey-timing controls bound to `PreferencesStore` (2026-05-10)
 - **H1** `FnKeyMonitor` CGEventTap on `flagsChanged` for `.maskSecondaryFn`, with `CGPreflightListenEventAccess` permission probe (2026-05-10)
-- **H2** `HotkeyController` state machine: hold-to-dictate (≥250ms) and double-tap-to-lock semantics, on injectable `BeckClock` (2026-05-10)
+- **H2** `HotkeyController` state machine: hold-to-dictate (≥250ms) and double-tap-to-lock semantics, on injectable `WaveClock` (2026-05-10)
 - **H4** 6 deterministic `HotkeyControllerTests` covering hold, single tap, double-tap, second-press-held, out-of-window second tap, spurious release (2026-05-10)
 - **C1** `SkipGate.shouldSkipCleanup` token-based gate + 7 tests (plain prose, empty, code keywords, case-insensitive, non-allowed chars, long input, substring guard) (2026-05-10)
 - **S1** `STTBackend` / `STTSession` async protocol with `STTPartial` and typed `STTError` (2026-05-10)
@@ -66,9 +66,9 @@ Authoritative spec: `project.md`. Each loop iteration historically picked the to
 - **O1** `DictationOrchestrator` actor: idle → recording → transcribing → cleaning → pasting → idle, with `DictationTrace` timing capture and a pluggable `DictationLogger` (2026-05-10)
 - **O2** AppDelegate wires `FnKeyMonitor` → `HotkeyController` → `DictationOrchestrator` with `AppleSpeechBackend` + `OllamaClient` + `PasterFactory` from `PreferencesStore`. Asserts system-prompt budget at launch. (2026-05-10)
 - **C4** `IdentityCache` JSON-backed counter; pipeline now short-circuits the LLM after `threshold` (default 200) consecutive identity passes per normalized raw pattern (2026-05-10)
-- **D1** `HistoryLogger` JSON-lines writer in `~/Library/Application Support/Beck/history.jsonl`, plumbed into the orchestrator (2026-05-10)
-- **K1/K2** `scripts/build-app.sh` produces an .app bundle, ad-hoc-signed by default and Developer-ID-signed with entitlements when `BECK_SIGNING_IDENTITY` is set (2026-05-10)
-- **K3/K4** `scripts/release.sh` builds, codesigns, notarizes via `notarytool` (when creds are set), staples, and produces a `dist/Beck.dmg`; falls back to unsigned DMG cleanly when env is missing (2026-05-10, dry-run produced 200KB DMG)
+- **D1** `HistoryLogger` JSON-lines writer in `~/Library/Application Support/Wave/history.jsonl`, plumbed into the orchestrator (2026-05-10)
+- **K1/K2** `scripts/build-app.sh` produces an .app bundle, ad-hoc-signed by default and Developer-ID-signed with entitlements when `WAVE_SIGNING_IDENTITY` is set (2026-05-10)
+- **K3/K4** `scripts/release.sh` builds, codesigns, notarizes via `notarytool` (when creds are set), staples, and produces a `dist/Wave.dmg`; falls back to unsigned DMG cleanly when env is missing (2026-05-10, dry-run produced 200KB DMG)
 - **O3** Floating `StatusPillController` (NSPanel + SwiftUI, ultraThinMaterial, status-bar level) shows live partial transcript + animated recording indicator; hides on idle, lingers 1.5s on errors (2026-05-10)
 - **D2** `HistoryWindowController` SwiftUI list backed by `HistoryLogger.recent(limit:)` with per-entry timing breakdown and SKIPPED/CLEANED badge (2026-05-10)
 - **H3/A2** `PermissionsProbe` (`AVCaptureDevice` + `CGPreflightListenEventAccess` + `AXIsProcessTrusted`) plus a Permissions section in Settings with an "Open System Settings" deep-link button per pane (2026-05-10)
@@ -89,13 +89,13 @@ Authoritative spec: `project.md`. Each loop iteration historically picked the to
 - **SHIPPING.md** Per-gate status table mapping every project.md requirement to its automated test or its real-env command, with a one-shot end-to-end recipe for an operator with Developer ID + Ollama. (2026-05-10)
 - **HeuristicCleanup** Regex+token fallback that converts spoken symbols ("open paren self dot id close paren" → "(self.id)"), spoken digits ("five" → "5"), and joins single-letter spelling runs ("u s e r underscore i d" → "user_id"). Wired as the pipeline's automatic fallback when Ollama isn't reachable. 7 unit tests. (2026-05-10)
 - **OnboardingWindow** First-launch SwiftUI panel with hierarchical waveform symbol, three permission rows (Mic / Input Monitoring / Accessibility) each with explainer, status icon, and Grant button that deep-links into the right Privacy & Security pane. Auto-opens only if any permission is missing; auto-refreshes every second. (2026-05-10)
-- **Cleanup mode preference** `auto` (default) / `heuristic` / `off`. Pipeline branches on it; Settings UI exposes the selector and disables Ollama fields outside `auto`. Env var `BECK_CLEANUP_MODE` honored. (2026-05-10)
+- **Cleanup mode preference** `auto` (default) / `heuristic` / `off`. Pipeline branches on it; Settings UI exposes the selector and disables Ollama fields outside `auto`. Env var `WAVE_CLEANUP_MODE` honored. (2026-05-10)
 - **Test Dictation menu item** Cmd+T from the status bar runs a fixed sample (`open paren self dot user underscore id close paren`) through pipeline + paster. Verifies F5 without recording mic audio. (2026-05-10)
 - **CHANGELOG.md** Added (2026-05-10)
 - **OllamaHealthProbe** `/api/tags` reachability + model-presence probe; Settings shows live health row with manual reprobe and per-state remediation text. 3 unit tests via in-process URLProtocol stub. (2026-05-10)
 - **History row Copy** Each row gets a Copy button with 1.5s "Copied" badge. (2026-05-10)
 - **Error auto-fade** AppState.setStatus(.error) auto-resets to .idle after 3s so the menu bar doesn't pin a stale error. (2026-05-10)
-- **ParakeetBackend** FluidAudio + Parakeet TDT v2 (CoreML/ANE) replacing the prior backends; AVAudioEngine input with Apple system voice processing enabled; 16 kHz mono Float buffer; lazy model download on first session, background prewarm at app launch. `STTBackendFactory`, `STTBackendKind`, the backend picker, the Whisper.cpp binary, the GGML model, the Python sidecar, and `BECK_STT_BACKEND` / `BECK_WHISPER_*` / `BECK_VOXTRAL_PYTHON` env vars all removed. (2026-05-12)
+- **ParakeetBackend** FluidAudio + Parakeet TDT v2 (CoreML/ANE) replacing the prior backends; AVAudioEngine input with Apple system voice processing enabled; 16 kHz mono Float buffer; lazy model download on first session, background prewarm at app launch. `STTBackendFactory`, `STTBackendKind`, the backend picker, the Whisper.cpp binary, the GGML model, the Python sidecar, and `WAVE_STT_BACKEND` / `WAVE_WHISPER_*` / `WAVE_VOXTRAL_PYTHON` env vars all removed. (2026-05-12)
 
 ---
 
