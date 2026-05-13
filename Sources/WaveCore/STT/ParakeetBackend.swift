@@ -1,5 +1,7 @@
 #if canImport(AVFoundation) && canImport(Foundation)
 @preconcurrency import AVFoundation
+import AudioToolbox
+import CoreAudio
 import Foundation
 import FluidAudio
 
@@ -14,6 +16,9 @@ public final class ParakeetBackend: STTBackend, @unchecked Sendable {
         public var modelVersion: AsrModelVersion
         public var enableVoiceProcessing: Bool
         public var verboseLog: Bool
+        /// Queried at the start of every session so changes in user settings
+        /// take effect on the next dictation without re-creating the backend.
+        public var microphoneChoiceProvider: @Sendable () -> MicrophoneChoice
 
         public init(
             modelVersion: AsrModelVersion = .v2,
@@ -24,11 +29,13 @@ public final class ParakeetBackend: STTBackend, @unchecked Sendable {
             // right macOS wiring — see Sources/WaveCore/STT/ParakeetBackend.swift
             // for the broken VPIO graph code, kept around for future debugging.
             enableVoiceProcessing: Bool = false,
-            verboseLog: Bool = false
+            verboseLog: Bool = false,
+            microphoneChoiceProvider: @escaping @Sendable () -> MicrophoneChoice = { .builtIn }
         ) {
             self.modelVersion = modelVersion
             self.enableVoiceProcessing = enableVoiceProcessing
             self.verboseLog = verboseLog
+            self.microphoneChoiceProvider = microphoneChoiceProvider
         }
     }
 
@@ -152,6 +159,11 @@ final class ParakeetSession: STTSession, @unchecked Sendable {
 
         let input = engine.inputNode
 
+        // Pin the input device per user preference BEFORE we read the
+        // negotiated format — the format depends on the bound device.
+        let choice = config.microphoneChoiceProvider()
+        Self.applyMicrophoneChoice(choice, on: input, log: log)
+
         // Apple system voice processing: AEC + noise/voice suppression. Must
         // be enabled before the engine starts. Pipeline order:
         // mic → Apple voice processing → Parakeet.
@@ -274,6 +286,56 @@ final class ParakeetSession: STTSession, @unchecked Sendable {
         engine.inputNode.removeTap(onBus: 0)
         _ = buffer.drain()
         continuation.finish()
+    }
+
+    /// Resolves the user's `MicrophoneChoice` to a specific `AudioDeviceID`
+    /// and pins it on the input node's audio unit. `.systemDefault` is a
+    /// no-op (lets `AVAudioEngine` follow whatever macOS picked).
+    /// `.specific(uid:)` falls back to built-in if that device isn't
+    /// currently connected. If even built-in can't be found, we don't pin
+    /// anything and let the system default stand.
+    static func applyMicrophoneChoice(_ choice: MicrophoneChoice, on input: AVAudioInputNode, log: ParakeetLog) {
+        let target: AudioInputDevice?
+        switch choice {
+        case .systemDefault:
+            log.log("session: mic choice = systemDefault (no pin)")
+            return
+        case .builtIn:
+            target = AudioInputDevices.builtIn()
+            if target == nil {
+                log.log("session: mic choice = builtIn but no built-in found — leaving system default")
+            }
+        case .specific(let uid):
+            if let found = AudioInputDevices.find(uid: uid) {
+                target = found
+            } else {
+                log.log("session: mic choice = specific(uid=\(uid)) not connected — falling back to built-in")
+                target = AudioInputDevices.builtIn()
+                if target == nil {
+                    log.log("session: built-in not found either — leaving system default")
+                }
+            }
+        }
+
+        guard let device = target else { return }
+        guard let unit = input.audioUnit else {
+            log.log("session: inputNode.audioUnit is nil — cannot pin device")
+            return
+        }
+        var id = device.id
+        let status = AudioUnitSetProperty(
+            unit,
+            kAudioOutputUnitProperty_CurrentDevice,
+            kAudioUnitScope_Global,
+            0,
+            &id,
+            UInt32(MemoryLayout<AudioDeviceID>.size)
+        )
+        if status == noErr {
+            log.log("session: pinned input to \"\(device.name)\" (uid=\(device.uid), id=\(device.id))")
+        } else {
+            log.log("session: AudioUnitSetProperty failed (status=\(status)) pinning \"\(device.name)\"")
+        }
     }
 
     /// RMS of the first channel, Float32-only. Returns 0 if the buffer is

@@ -13,6 +13,37 @@ public enum PasteMode: String, Sendable, CaseIterable, Identifiable {
     }
 }
 
+/// User's microphone selection. Default is `.builtIn` — Wave pins the Mac's
+/// built-in mic regardless of what macOS picks as the system default, because
+/// Bluetooth/HFP inputs (AirPods, etc.) are heavily compressed and hurt STT
+/// quality. Users who want plug-and-play behavior can pick `.systemDefault`,
+/// or pin a specific device by UID.
+public enum MicrophoneChoice: Sendable, Equatable, Hashable {
+    case builtIn
+    case systemDefault
+    case specific(uid: String)
+}
+
+extension MicrophoneChoice: RawRepresentable {
+    public var rawValue: String {
+        switch self {
+        case .builtIn:        return "builtIn"
+        case .systemDefault:  return "systemDefault"
+        case .specific(let u): return "uid:" + u
+        }
+    }
+
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "builtIn":       self = .builtIn
+        case "systemDefault": self = .systemDefault
+        default:
+            guard rawValue.hasPrefix("uid:") else { return nil }
+            self = .specific(uid: String(rawValue.dropFirst(4)))
+        }
+    }
+}
+
 public enum CleanupMode: String, Sendable, CaseIterable, Identifiable {
     case auto       // try LLM, fall back to heuristic, fall back to raw
     case heuristic  // skip the LLM entirely; always use HeuristicCleanup
@@ -35,6 +66,7 @@ public struct Preferences: Sendable, Equatable {
     public var cleanupMode: CleanupMode
     public var holdThresholdMs: Int
     public var doubleTapWindowMs: Int
+    public var microphoneChoice: MicrophoneChoice
 
     public init(
         cleanupModel: String = "qwen2.5-coder:7b-instruct",
@@ -42,7 +74,8 @@ public struct Preferences: Sendable, Equatable {
         pasteMode: PasteMode = .paste,
         cleanupMode: CleanupMode = .auto,
         holdThresholdMs: Int = 250,
-        doubleTapWindowMs: Int = 280
+        doubleTapWindowMs: Int = 280,
+        microphoneChoice: MicrophoneChoice = .builtIn
     ) {
         self.cleanupModel = cleanupModel
         self.ollamaURL = ollamaURL
@@ -50,6 +83,7 @@ public struct Preferences: Sendable, Equatable {
         self.cleanupMode = cleanupMode
         self.holdThresholdMs = holdThresholdMs
         self.doubleTapWindowMs = doubleTapWindowMs
+        self.microphoneChoice = microphoneChoice
     }
 
     public static func loadFromEnvironment(_ env: [String: String] = ProcessInfo.processInfo.environment) -> Preferences {
@@ -71,12 +105,23 @@ public struct Preferences: Sendable, Equatable {
 }
 
 public final class PreferencesStore: @unchecked Sendable {
+    // MARK: - Persistence
+    // Most prefs are in-memory only today (loaded from env vars at startup);
+    // `microphoneChoice` is the exception and persists via UserDefaults so a
+    // user's pinned mic survives restarts.
+    private static let micChoiceKey = "WaveMicrophoneChoice"
+
     private let queue = DispatchQueue(label: "com.wave.prefs")
     private var _value: Preferences
     public var onChange: (@Sendable (Preferences) -> Void)?
 
     public init(initial: Preferences = .loadFromEnvironment()) {
-        self._value = initial
+        var seeded = initial
+        if let raw = UserDefaults.standard.string(forKey: Self.micChoiceKey),
+           let choice = MicrophoneChoice(rawValue: raw) {
+            seeded.microphoneChoice = choice
+        }
+        self._value = seeded
     }
 
     public var value: Preferences {
@@ -87,6 +132,13 @@ public final class PreferencesStore: @unchecked Sendable {
         let next: Preferences = queue.sync {
             mutate(&_value)
             return _value
+        }
+        // Persist the mic choice — default value clears the key so a future
+        // default change is picked up automatically rather than pinned.
+        if next.microphoneChoice == .builtIn {
+            UserDefaults.standard.removeObject(forKey: Self.micChoiceKey)
+        } else {
+            UserDefaults.standard.set(next.microphoneChoice.rawValue, forKey: Self.micChoiceKey)
         }
         onChange?(next)
     }

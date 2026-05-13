@@ -40,6 +40,8 @@ private struct SettingsView: View {
     @State private var probing = false
     @State private var launchAtLoginEnabled: Bool = (LaunchAtLogin.current == .enabled)
     @State private var launchAtLoginNote: String?
+    @State private var inputDevices: [AudioInputDevice] = []
+    @State private var seenDeviceNames: [String: String] = [:]
 
     init(prefs: PreferencesStore) {
         self.prefs = prefs
@@ -83,6 +85,25 @@ private struct SettingsView: View {
                     explainer: "Required to detect the global Fn-key hotkey and paste cleaned text."
                 )
             }
+            Section("Microphone") {
+                Picker("Input", selection: $snapshot.microphoneChoice) {
+                    Text("Built-in microphone (Recommended)").tag(MicrophoneChoice.builtIn)
+                    Text("System default").tag(MicrophoneChoice.systemDefault)
+                    if !externalDevices.isEmpty {
+                        Divider()
+                        ForEach(externalDevices, id: \.uid) { device in
+                            Text(device.name).tag(MicrophoneChoice.specific(uid: device.uid))
+                        }
+                    }
+                    if let pinned = pinnedMissing {
+                        Text("\(pinned.displayName) (disconnected)")
+                            .tag(MicrophoneChoice.specific(uid: pinned.uid))
+                    }
+                }
+                Text("External and Bluetooth microphones often capture lower-quality audio, which can hurt transcription accuracy.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
             Section("Cleanup") {
                 Picker("Mode", selection: $snapshot.cleanupMode) {
                     ForEach(CleanupMode.allCases) { mode in
@@ -116,9 +137,11 @@ private struct SettingsView: View {
             prefs.update { $0 = newValue }
         }
         .onAppear {
+            refreshInputDevices()
             refreshTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { _ in
                 Task { @MainActor in
                     permissions = PermissionsProbe.current()
+                    refreshInputDevices()
                 }
             }
             probeOllama()
@@ -187,6 +210,25 @@ private struct SettingsView: View {
             return "Run `ollama pull \(snapshot.cleanupModel)` to enable LLM cleanup. Available: \(list)"
         case .unreachable:
             return "Cleanup falls back to the heuristic transformer until Ollama is reachable."
+        }
+    }
+
+    private var externalDevices: [AudioInputDevice] {
+        inputDevices.filter { !$0.isBuiltIn }
+    }
+
+    private var pinnedMissing: (uid: String, displayName: String)? {
+        guard case .specific(let uid) = snapshot.microphoneChoice else { return nil }
+        guard !externalDevices.contains(where: { $0.uid == uid }) else { return nil }
+        let name = seenDeviceNames[uid] ?? "External microphone"
+        return (uid, name)
+    }
+
+    private func refreshInputDevices() {
+        let devices = AudioInputDevices.available()
+        inputDevices = devices
+        for d in devices where !d.isBuiltIn {
+            seenDeviceNames[d.uid] = d.name
         }
     }
 

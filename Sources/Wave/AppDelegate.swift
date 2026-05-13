@@ -78,7 +78,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Verbose log when WAVE_PARAKEET_LOG=1 — stderr, visible from the
         // terminal that launched the .app (or from Console.app).
         let verbose = ProcessInfo.processInfo.environment["WAVE_PARAKEET_LOG"] == "1"
-        let parakeet = ParakeetBackend(config: .init(verboseLog: verbose))
+        let prefsRef = prefs
+        let parakeet = ParakeetBackend(config: .init(
+            verboseLog: verbose,
+            microphoneChoiceProvider: { prefsRef.value.microphoneChoice }
+        ))
         let state = appState
         parakeet.levelObserver = { level in
             state.setAudioLevel(level)
