@@ -10,16 +10,51 @@ import Foundation
 ///   2 — Show Emoji & Symbols
 ///   3 — Start Dictation
 ///
-/// Wave claims the Fn key for push-to-talk dictation, so we set this to
-/// `.doNothing` on launch. Intercepting Fn events via `CGEventTap` alone
-/// isn't sufficient — macOS dispatches the emoji/dictation overlay from
-/// HIToolbox observing HID directly, below the public event stream, so a
-/// session-level tap never gets the chance to suppress it. Flipping the
-/// preference is the only reliable route.
+/// Wave claims the Fn key for push-to-talk dictation, so we force this
+/// to `.doNothing` on every launch. Intercepting Fn events via
+/// `CGEventTap` alone isn't enough — macOS dispatches the emoji and
+/// dictation overlays from HIToolbox's internal HID listener, separate
+/// from the public event tap stream. Setting the preference is what
+/// silences that listener.
 ///
-/// Caveat: macOS caches this preference at login. A user-visible change
-/// of behavior requires a logout/login (or full restart) after the value
-/// is first written. Subsequent launches are no-ops once the value sticks.
+/// HIToolbox caches the value in-memory. Writing the plist alone (via
+/// `CFPreferencesSetAppValue` or `defaults write`) is **not** picked
+/// up live — we also have to post the `com.apple.KeyboardUIModeDidChange`
+/// distributed notification (the same signal System Settings posts via
+/// the HIServices XPC service when the user changes the dropdown). See
+/// `setFnUsageType` for the full recipe.
+///
+/// # How we know this works
+///
+/// Discovered empirically: traced `log stream` while flipping "Press 🌐
+/// key to" in System Settings, saw every Apple process re-read
+/// `AppleFnUsageType` within milliseconds (WindowServer, ControlCenter,
+/// TextInputMenuAgent, CharacterPalette, …). `defaults write` from a
+/// shell did NOT produce that cascade — so the prefpane was doing
+/// something extra. Disassembling `com.apple.hiservices-xpcservice`
+/// surfaced a fixed list of distributed-notification names the XPC
+/// service is allowed to post; bisecting them against the prefpane's
+/// behavior landed on `com.apple.KeyboardUIModeDidChange` as the one
+/// HIToolbox actually listens for. Verified end-to-end: with the pref
+/// at 0 and this notification posted, HIToolbox stops dispatching the
+/// emoji/dictation overlay live, with no logout required.
+///
+/// # DO NOT
+///
+/// - Re-add a logout/restart prompt. The recipe below works live.
+/// - Re-add the "make user toggle the dropdown in System Settings"
+///   onboarding step. Wave handles it silently on every launch.
+/// - Drop the `CFNotificationCenterPostNotification` call thinking
+///   `CFPreferencesSetAppValue` is enough. It isn't — HIToolbox will
+///   read stale state from its in-memory cache until the next login.
+/// - Switch the notification name. We tested every candidate the
+///   HIServices XPC service knows about; only this one moves
+///   HIToolbox's cache. Others (e.g. `AppleSelectedInputSourcesChangedNotification`)
+///   look related but don't trigger the refresh.
+/// - Try to seize the keyboard via `IOHIDManager` with
+///   `kIOHIDOptionsTypeSeizeDevice` to "bypass HIToolbox". That path
+///   needs root or a DriverKit extension — overkill, and Wispr Flow
+///   doesn't do it either (we checked).
 public enum FnSystemPreference {
     public enum UsageType: Int {
         case doNothing = 0
@@ -38,39 +73,52 @@ public enum FnSystemPreference {
         return UsageType(rawValue: raw)
     }
 
-    /// Writes the given value to `com.apple.HIToolbox`. Returns whether
-    /// the synchronous flush to cfprefsd succeeded.
+    /// Writes the given value to `com.apple.HIToolbox` **and** kicks
+    /// HIToolbox to reload its in-memory cache immediately — no
+    /// logout required.
+    ///
+    /// The reload is triggered by posting the distributed notification
+    /// `com.apple.KeyboardUIModeDidChange`. This is the same signal
+    /// System Settings' Keyboard pane posts (via the HIServices XPC
+    /// service) when the user changes "Press 🌐 key to" — discovered
+    /// by tracing `log stream` while flipping the dropdown manually
+    /// and then bisecting the candidate notification names defined in
+    /// `com.apple.hiservices-xpcservice`. Once posted, every Apple
+    /// process subscribed to HIToolbox prefs re-reads the value
+    /// within milliseconds (we saw WindowServer, ControlCenter,
+    /// TextInputMenuAgent, CharacterPalette, etc. all refresh).
+    ///
+    /// Writing the plist alone (via `CFPreferencesSetAppValue` or
+    /// `defaults write`) is **not** enough — HIToolbox caches at
+    /// login and ignores the on-disk change without this kick.
     @discardableResult
     public static func setFnUsageType(_ type: UsageType) -> Bool {
         let key = "AppleFnUsageType" as CFString
         let domain = "com.apple.HIToolbox" as CFString
         CFPreferencesSetAppValue(key, NSNumber(value: type.rawValue), domain)
-        return CFPreferencesAppSynchronize(domain)
+        let ok = CFPreferencesAppSynchronize(domain)
+        let name = CFNotificationName("com.apple.KeyboardUIModeDidChange" as CFString)
+        CFNotificationCenterPostNotification(
+            CFNotificationCenterGetDistributedCenter(),
+            name,
+            nil,
+            nil,
+            true
+        )
+        return ok
     }
 
-    /// Mtime of the user's `com.apple.HIToolbox.plist`. We can't directly
-    /// observe HIToolbox's in-memory cache, but the plist gets rewritten
-    /// whenever System Settings (or `defaults write`) touches the domain.
-    /// During onboarding we capture a baseline mtime, then watch for a
-    /// later bump — that's the signal that the user actually did the
-    /// toggle in System Settings (which is what kicks HIToolbox to
-    /// re-read and apply the value).
-    public static func hiToolboxPlistModificationDate() -> Date? {
-        let path = (NSHomeDirectory() as NSString)
-            .appendingPathComponent("Library/Preferences/com.apple.HIToolbox.plist")
-        guard let attrs = try? FileManager.default.attributesOfItem(atPath: path) else {
-            return nil
-        }
-        return attrs[.modificationDate] as? Date
+    /// Force-apply `.doNothing` on launch. Idempotent — returns the
+    /// value that was in effect *before* we wrote (so callers can
+    /// log whether the OS state needed correcting). Posts the
+    /// reload notification unconditionally so even a no-op write
+    /// still nudges HIToolbox in case its cache is somehow stale.
+    @discardableResult
+    public static func enforceDoNothing() -> UsageType? {
+        let before = currentFnUsageType()
+        _ = setFnUsageType(.doNothing)
+        return before
     }
 
-    /// Deep link to System Settings → Keyboard, where the user changes
-    /// "Press 🌐 key to:" to "Do Nothing".
-    public static let keyboardSettingsURL: URL = {
-        guard let url = URL(string: "x-apple.systempreferences:com.apple.Keyboard-Settings.extension") else {
-            preconditionFailure("invalid keyboard settings URL")
-        }
-        return url
-    }()
 }
 #endif

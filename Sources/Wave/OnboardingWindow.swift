@@ -10,8 +10,7 @@ final class OnboardingWindowController {
         let snapshot = PermissionsProbe.current()
         let allGranted = snapshot.microphone == .granted
             && snapshot.accessibility == .granted
-        let fnPrefDone = FnSystemPreference.currentFnUsageType() == .doNothing
-        guard !(allGranted && fnPrefDone) else { return }
+        guard !allGranted else { return }
         show()
     }
 
@@ -57,7 +56,6 @@ private struct OnboardingView: View {
     @State private var snapshot: PermissionsSnapshot = PermissionsProbe.current()
     @State private var refreshTimer: Timer?
     @State private var fnPressedOnce: Bool = false
-    @State private var fnPrefConfirmed: Bool = (FnSystemPreference.currentFnUsageType() == .doNothing)
 
     var body: some View {
         VStack(spacing: 0) {
@@ -82,7 +80,6 @@ private struct OnboardingView: View {
             refreshTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
                 Task { @MainActor in
                     snapshot = PermissionsProbe.current()
-                    fnPrefConfirmed = (FnSystemPreference.currentFnUsageType() == .doNothing)
                 }
             }
         }
@@ -92,7 +89,7 @@ private struct OnboardingView: View {
     @ViewBuilder
     private var stepView: some View {
         switch step {
-        case .permissions: PermissionsStep(snapshot: snapshot, fnPrefConfirmed: fnPrefConfirmed)
+        case .permissions: PermissionsStep(snapshot: snapshot)
         case .fnKey:       FnKeyStep(pressedOnce: $fnPressedOnce)
         case .menuBar:     MenuBarStep()
         case .paste:       PasteStep()
@@ -147,7 +144,6 @@ private struct OnboardingView: View {
     private var allGranted: Bool {
         snapshot.microphone == .granted
             && snapshot.accessibility == .granted
-            && fnPrefConfirmed
     }
 
     private var primaryDisabled: Bool {
@@ -175,7 +171,6 @@ private struct OnboardingView: View {
 
 private struct PermissionsStep: View {
     let snapshot: PermissionsSnapshot
-    let fnPrefConfirmed: Bool
 
     var body: some View {
         VStack(spacing: 18) {
@@ -184,8 +179,8 @@ private struct PermissionsStep: View {
                     .font(.system(size: 56, weight: .regular))
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(.tint)
-                Text("Welcome").font(.title2.weight(.semibold))
-                Text("Wave needs your microphone to capture audio, Accessibility to read the Fn key and paste text, and one keyboard setting flipped so macOS doesn't fight us for the Fn key.")
+                Text("Welcome to Wave").font(.title2.weight(.semibold))
+                Text("Wave needs your microphone to capture audio and Accessibility to listen for hotkeys & paste text.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -196,21 +191,15 @@ private struct PermissionsStep: View {
             VStack(spacing: 10) {
                 permissionRow(
                     title: "Microphone",
-                    explainer: "Records audio while the hotkey is held",
+                    explainer: Text("Recording audio when Wave is active"),
                     granted: snapshot.microphone == .granted,
                     prompt: .microphone
                 )
                 permissionRow(
                     title: "Accessibility",
-                    explainer: "Detects the global Fn-key hotkey and pastes cleaned text",
+                    explainer: Text("Detecting the \(Image(systemName: "globe")) key and pastes cleaned text"),
                     granted: snapshot.accessibility == .granted,
                     prompt: .accessibility
-                )
-                permissionRow(
-                    title: "Globe Key",
-                    explainer: "Frees Fn from macOS's emoji picker so Wave owns the key",
-                    granted: fnPrefConfirmed,
-                    prompt: .fnKey
                 )
             }
             .padding(.horizontal, 18)
@@ -228,7 +217,7 @@ private struct PermissionsStep: View {
     @ViewBuilder
     private func permissionRow(
         title: String,
-        explainer: String,
+        explainer: Text,
         granted: Bool,
         prompt: PermissionPrompt
     ) -> some View {
@@ -239,11 +228,11 @@ private struct PermissionsStep: View {
                 .padding(.top, 2)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.body.weight(.medium))
-                Text(explainer).font(.caption).foregroundStyle(.secondary)
+                explainer.font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
             if !granted {
-                Button(prompt == .fnKey ? "Configure" : "Grant") {
+                Button("Grant") {
                     PermissionPromptAssistant.shared.request(prompt)
                 }
                 .buttonStyle(.bordered)

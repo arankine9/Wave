@@ -32,9 +32,11 @@ macOS will prompt for these the first time the app needs them. You can also see 
 | Permission | Why | Where to grant |
 |---|---|---|
 | Microphone | Capture audio while the hotkey is held | System Settings → Privacy & Security → Microphone |
-| Accessibility | Detect the global Fn-key hotkey (via NSEvent flagsChanged monitor) and synthesize Cmd+V (or per-character keystrokes) into the focused app | System Settings → Privacy & Security → Accessibility |
+| Accessibility | Detect the global Fn-key hotkey (via CGEventTap at the HID level) and synthesize Cmd+V (or per-character keystrokes) into the focused app | System Settings → Privacy & Security → Accessibility |
 
 If the menu bar icon shows "Status: Grant Accessibility in Privacy & Security", the Fn monitor couldn't register — flip the toggle in the Accessibility pane and quit/relaunch the app. (No Input Monitoring grant is required: modifier-flag changes ride on the Accessibility pipeline, so macOS never prompts "would like to receive keystrokes from any application".)
+
+Wave also silently claims the Fn (Globe) key on every launch so the macOS emoji picker, Start Dictation overlay, and Change Input Source actions never fire while the app is running. This is done by writing `AppleFnUsageType=0` to `com.apple.HIToolbox` and posting the `com.apple.KeyboardUIModeDidChange` distributed notification — the same signal System Settings posts when you flip "Press 🌐 key to". No logout or System Settings detour is needed. See `Sources/WaveCore/Hotkey/FnSystemPreference.swift` for the discovery story and rationale.
 
 ## Speech-to-text setup
 

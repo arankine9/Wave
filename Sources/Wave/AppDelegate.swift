@@ -25,6 +25,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         debugLog("applicationDidFinishLaunching")
         SystemPrompt.assertWithinBudget()
 
+        // Reclaim the Fn key from macOS as early as possible. This is
+        // load-bearing — without it, pressing Fn fires the emoji
+        // picker / Start Dictation overlay before our CGEventTap can
+        // do anything. See `FnSystemPreference` for *why* a plist
+        // write alone isn't enough and why we MUST pair it with the
+        // distributed-notification post that lives inside
+        // `setFnUsageType`. Do not remove either half.
+        let prior = FnSystemPreference.enforceDoNothing()
+        if prior != nil && prior != .doNothing {
+            debugLog("Reset AppleFnUsageType from \(prior!) → doNothing")
+        }
+
         let settings = SettingsWindowController(prefs: prefs)
         settingsController = settings
         AppMenu.install(openSettings: { [weak settings] in settings?.show() })

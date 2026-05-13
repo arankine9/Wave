@@ -12,12 +12,6 @@ final class PermissionPromptAssistant {
     private var activationObserver: NSObjectProtocol?
     private var activePrompt: PermissionPrompt?
     private var didPresentCurrentOverlay = false
-    /// Mtime of `~/Library/Preferences/com.apple.HIToolbox.plist` captured
-    /// when the user kicks off a `.fnKey` flow. We treat any later mtime
-    /// bump (combined with `AppleFnUsageType == 0`) as the signal that
-    /// the user actually drove the dropdown in System Settings — which
-    /// is the only thing that gets HIToolbox to re-read its cache.
-    private var fnPrefBaselineMtime: Date?
 
     init() {}
 
@@ -25,7 +19,6 @@ final class PermissionPromptAssistant {
     /// - Accessibility: opens System Settings and shows the drag-to-add overlay.
     /// - Microphone (undetermined): fires the native consent prompt only — no overlay.
     /// - Microphone (denied): opens System Settings and shows the flip-the-toggle overlay.
-    /// - Fn key: opens Keyboard Settings and shows the change-the-dropdown overlay.
     func request(_ prompt: PermissionPrompt) {
         switch prompt {
         case .accessibility:
@@ -54,9 +47,6 @@ final class PermissionPromptAssistant {
             case .denied, .unknown:
                 present(prompt: .microphone, variant: .toggleInList)
             }
-        case .fnKey:
-            fnPrefBaselineMtime = FnSystemPreference.hiToolboxPlistModificationDate()
-            present(prompt: .fnKey, variant: .dropdownToValue)
         }
     }
 
@@ -140,24 +130,7 @@ final class PermissionPromptAssistant {
             granted = PermissionsProbe.accessibilityStatus() == .granted
         case .microphone:
             granted = PermissionsProbe.microphoneStatus() == .granted
-        case .fnKey:
-            granted = isFnKeyToggleConfirmed()
         }
         if granted { dismiss() }
-    }
-
-    /// True when the user has driven the Press-🌐 dropdown through
-    /// System Settings since this prompt was opened. Two conditions:
-    /// 1. The current value is `.doNothing`.
-    /// 2. The HIToolbox plist mtime has moved past the baseline we
-    ///    captured when the user clicked Configure — this is what tells
-    ///    us the write came from Settings (the only path that also
-    ///    flushes HIToolbox's in-memory cache), not from our app or
-    ///    some leftover state.
-    private func isFnKeyToggleConfirmed() -> Bool {
-        guard FnSystemPreference.currentFnUsageType() == .doNothing else { return false }
-        guard let now = FnSystemPreference.hiToolboxPlistModificationDate() else { return false }
-        guard let base = fnPrefBaselineMtime else { return false }
-        return now > base
     }
 }

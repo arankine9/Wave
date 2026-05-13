@@ -4,7 +4,6 @@ import Foundation
 enum PermissionOverlayVariant {
     case dragToList
     case toggleInList
-    case dropdownToValue
 }
 
 final class PermissionOverlayWindowController: NSWindowController {
@@ -184,8 +183,6 @@ private final class PermissionOverlayContentView: NSView {
             bottomRow = PermissionDragRow(hostApp: hostApp)
         case .toggleInList:
             bottomRow = PermissionToggleRow(hostApp: hostApp)
-        case .dropdownToValue:
-            bottomRow = PermissionDropdownRow()
         }
         bottomRow.translatesAutoresizingMaskIntoConstraints = false
         materialView.addSubview(bottomRow)
@@ -246,8 +243,6 @@ private final class PermissionOverlayContentView: NSView {
             copy = "Drag \(hostApp.displayName) into the list to allow \(prompt.title)"
         case .toggleInList:
             copy = "Find \(hostApp.displayName) above and flip the \(prompt.title) toggle on"
-        case .dropdownToValue:
-            copy = "Set \"Press 🌐 key to\" to \"Do Nothing\""
         }
         return NSAttributedString(
             string: copy,
