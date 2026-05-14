@@ -6,8 +6,6 @@ final class StatusItemController {
     private let appState: AppState
     private let openSettings: () -> Void
     private let openHistory: () -> Void
-    private let runTestDictation: () -> Void
-    private let copyDiagnostics: () -> Void
     private var statusItem: NSStatusItem?
     private let statusMenuItem = NSMenuItem(title: "Status: Idle", action: nil, keyEquivalent: "")
     private var animationTimer: Timer?
@@ -34,15 +32,11 @@ final class StatusItemController {
     init(
         appState: AppState,
         openSettings: @escaping () -> Void,
-        openHistory: @escaping () -> Void,
-        runTestDictation: @escaping () -> Void,
-        copyDiagnostics: @escaping () -> Void
+        openHistory: @escaping () -> Void
     ) {
         self.appState = appState
         self.openSettings = openSettings
         self.openHistory = openHistory
-        self.runTestDictation = runTestDictation
-        self.copyDiagnostics = copyDiagnostics
     }
 
     func install() {
@@ -176,12 +170,15 @@ final class StatusItemController {
         let menu = NSMenu()
         menu.addItem(statusMenuItem)
         menu.addItem(.separator())
-        menu.addItem(NSMenuItem(title: "Test Dictation (paste sample)", action: #selector(runTestAction), keyEquivalent: "t"))
-        menu.addItem(NSMenuItem(title: "Open Settings…", action: #selector(openSettingsAction), keyEquivalent: ","))
-        menu.addItem(NSMenuItem(title: "Open History…", action: #selector(openHistoryAction), keyEquivalent: "h"))
-        menu.addItem(NSMenuItem(title: "Copy Diagnostics", action: #selector(copyDiagnosticsAction), keyEquivalent: "d"))
+        let settings = NSMenuItem(title: "Open Settings…", action: #selector(openSettingsAction), keyEquivalent: ",")
+        settings.image = Self.menuIcon("gearshape")
+        menu.addItem(settings)
+        let history = NSMenuItem(title: "Open History…", action: #selector(openHistoryAction), keyEquivalent: "h")
+        history.image = Self.menuIcon("clock.arrow.circlepath")
+        menu.addItem(history)
         menu.addItem(.separator())
         let quit = NSMenuItem(title: "Quit Wave", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        quit.image = Self.menuIcon("power")
         quit.target = NSApp
         menu.addItem(quit)
         for item in menu.items where item.target == nil && item.action != nil {
@@ -198,11 +195,9 @@ final class StatusItemController {
         openHistory()
     }
 
-    @objc private func runTestAction() {
-        runTestDictation()
-    }
-
-    @objc private func copyDiagnosticsAction() {
-        copyDiagnostics()
+    private static func menuIcon(_ name: String) -> NSImage? {
+        let config = NSImage.SymbolConfiguration(pointSize: 13, weight: .regular)
+        return NSImage(systemSymbolName: name, accessibilityDescription: nil)?
+            .withSymbolConfiguration(config)
     }
 }

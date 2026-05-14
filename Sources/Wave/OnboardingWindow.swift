@@ -439,10 +439,8 @@ private struct MenuBarStep: View {
 
     private let menuRows: [MenuRowSpec] = [
         .init(icon: "circle.fill", color: .green, label: "Status: Idle", isStatus: true),
-        .init(icon: "speaker.wave.2", label: "Test Dictation"),
         .init(icon: "gearshape", label: "Open Settings…"),
         .init(icon: "clock.arrow.circlepath", label: "Open History…"),
-        .init(icon: "doc.on.clipboard", label: "Copy Diagnostics"),
         .init(icon: "power", label: "Quit Wave")
     ]
 
@@ -451,7 +449,7 @@ private struct MenuBarStep: View {
             StepHeader(
                 icon: "menubar.rectangle",
                 title: "Wave lives in the menu bar",
-                subtitle: "Wave lives in the menu bar. Click the waveform icon near the battery to test dictation, open settings, or view history."
+                subtitle: "Wave lives in the menu bar. Click the waveform icon near the battery to open settings or view history."
             )
 
             ZStack {
@@ -474,7 +472,7 @@ private struct MenuBarStep: View {
             }
             .frame(maxHeight: .infinity)
 
-            Text("\u{201C}Test Dictation\u{201D} pastes a sample so you can verify the full pipeline.")
+            Text("The status icon animates while Wave is listening, transcribing, or pasting.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)

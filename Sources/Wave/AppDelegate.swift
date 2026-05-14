@@ -13,8 +13,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var fnMonitor: FnKeyMonitor?
     private var hotkeyController: HotkeyController?
     private var orchestrator: DictationOrchestrator?
-    private var testPipeline: CleanupPipeline?
-    private var testPaster: Paster?
     private let history = HistoryLogger(file: HistoryLogger.defaultURL())
 
     private var pipelineInstalled = false
@@ -46,12 +44,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusController = StatusItemController(
             appState: appState,
             openSettings: { [weak settings] in settings?.show() },
-            openHistory: { [weak historyWindow] in historyWindow?.show() },
-            runTestDictation: { [weak self] in self?.runTestDictation() },
-            copyDiagnostics: { [weak self] in
-                guard let self else { return }
-                Task { await Diagnostics.copyToClipboard(prefs: self.prefs) }
-            }
+            openHistory: { [weak historyWindow] in historyWindow?.show() }
         )
         statusController?.install()
 
@@ -67,22 +60,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         fnMonitor?.stop()
         statusController?.uninstall()
         permissionRetryTimer?.invalidate()
-    }
-
-    private func runTestDictation() {
-        guard let pipeline = testPipeline, let paster = testPaster else { return }
-        let sample = "open paren self dot user underscore id close paren"
-        appState.setStatus(.cleaning)
-        Task { [weak self] in
-            do {
-                let result = try await pipeline.run(rawTranscript: sample)
-                self?.appState.setStatus(.pasting)
-                try paster.paste(result.text)
-                self?.appState.setStatus(.idle)
-            } catch {
-                self?.appState.setStatus(.error("Test: \(error)"))
-            }
-        }
     }
 
     private func installDictationPipeline() {
@@ -115,8 +92,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             mode: current.cleanupMode
         )
         let paster = PasterFactory.make(mode: current.pasteMode)
-        self.testPipeline = pipeline
-        self.testPaster = paster
 
         let orchestrator = DictationOrchestrator(
             backend: backend,
