@@ -56,9 +56,10 @@ final class DictationOrchestratorTests: XCTestCase {
         await orch.handle(.startRecording(reason: .hold))
         await orch.handle(.stopRecording)
 
-        XCTAssertEqual(paster.pasted, ["hello there"])
-        XCTAssertEqual(logger.last?.path, .skipped)
-        XCTAssertEqual(client.callCount, 0)
+        XCTAssertEqual(paster.pasted, ["Hello there"])
+        XCTAssertEqual(logger.last?.path, .cleaned)
+        XCTAssertEqual(client.callCount, 0,
+            "plain prose is cleaned deterministically without an LLM call")
     }
 
     func testArmCommitStopPastesAndTraces() async throws {
@@ -82,8 +83,8 @@ final class DictationOrchestratorTests: XCTestCase {
         await orch.handle(.stopRecording)
 
         XCTAssertEqual(backend.sessionsStarted, 1, "armRecording opens exactly one session")
-        XCTAssertEqual(paster.pasted, ["hello world"])
-        XCTAssertEqual(logger.last?.finalText, "hello world")
+        XCTAssertEqual(paster.pasted, ["Hello world"])
+        XCTAssertEqual(logger.last?.finalText, "Hello world")
     }
 
     func testArmThenDisarmDiscardsSession() async {

@@ -44,7 +44,8 @@ final class EndToEndIntegrationTests: XCTestCase {
 
         try await runHoldCycle(orchestrator: orchestrator)
 
-        XCTAssertEqual(paster.pasted, ["tomorrow morning"])
+        XCTAssertEqual(paster.pasted, ["Tomorrow morning"],
+            "deterministic cleanup capitalizes sentence start; LLM still bypassed")
         XCTAssertEqual(client.callCount, 0)
     }
 

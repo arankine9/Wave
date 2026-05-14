@@ -2,16 +2,18 @@ import XCTest
 @testable import WaveCore
 
 final class CleanupPipelineTests: XCTestCase {
-    func testGateSkipsReturnsRawAndAvoidsClient() async throws {
+    func testGateSkipsLLMForPlainProse() async throws {
+        // Plain short prose passes deterministic cleanup (capitalization)
+        // but skips the LLM. Result is the cleaned text with `cleaned` path
+        // and zero input tokens because no LLM call was made.
         let client = StubCleanupClient(chunks: ["should not be called"])
         let pipeline = CleanupPipeline(client: client, model: "stub")
 
         let result = try await pipeline.run(rawTranscript: "hello there")
 
-        XCTAssertEqual(result.path, .skipped)
-        XCTAssertEqual(result.text, "hello there")
-        XCTAssertEqual(result.inputTokens, 0)
-        XCTAssertEqual(result.outputTokens, 0)
+        XCTAssertEqual(result.path, .cleaned)
+        XCTAssertEqual(result.text, "Hello there")
+        XCTAssertEqual(result.inputTokens, 0, "no LLM call → zero input tokens")
         XCTAssertEqual(client.callCount, 0)
     }
 
