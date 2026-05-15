@@ -4,9 +4,13 @@
 #
 # Required env for a notarized release:
 #   WAVE_SIGNING_IDENTITY  e.g. "Developer ID Application: Your Name (TEAMID)"
-#   APPLE_ID                  Apple ID email
-#   APPLE_APP_SPECIFIC_PASSWORD  App-specific password
-#   APPLE_TEAM_ID             10-char team identifier
+#   WAVE_NOTARY_PROFILE    Keychain profile name (default: wave-notary).
+#                          Set up once with:
+#                            xcrun notarytool store-credentials wave-notary \
+#                              --apple-id <email> --team-id <TEAMID> --password <app-specific-pw>
+#
+# CI override (used when no keychain profile is available, e.g. GitHub Actions):
+#   APPLE_ID, APPLE_TEAM_ID, APPLE_APP_SPECIFIC_PASSWORD
 #
 # If the signing identity is missing the script ad-hoc signs and skips
 # notarization, producing a DMG that runs locally but trips Gatekeeper on
@@ -31,27 +35,33 @@ fi
 
 mkdir -p "$DIST"
 
+# Pick how we authenticate notarytool. Prefer a keychain profile (local dev),
+# fall back to Apple ID + app-specific password (CI).
+NOTARY_PROFILE="${WAVE_NOTARY_PROFILE:-wave-notary}"
+NOTARY_ARGS=()
+if security find-generic-password -s "com.apple.gke.notary.tool" -a "$NOTARY_PROFILE" >/dev/null 2>&1; then
+    NOTARY_ARGS=(--keychain-profile "$NOTARY_PROFILE")
+elif [ -n "${APPLE_ID:-}" ] && [ -n "${APPLE_APP_SPECIFIC_PASSWORD:-}" ] && [ -n "${APPLE_TEAM_ID:-}" ]; then
+    NOTARY_ARGS=(--apple-id "$APPLE_ID" --password "$APPLE_APP_SPECIFIC_PASSWORD" --team-id "$APPLE_TEAM_ID")
+fi
+
 if [ "$SIGNED" = "1" ]; then
     echo "[release] verifying signature"
     codesign --verify --deep --strict --verbose=2 "$APP"
 
-    if [ -n "${APPLE_ID:-}" ] && [ -n "${APPLE_APP_SPECIFIC_PASSWORD:-}" ] && [ -n "${APPLE_TEAM_ID:-}" ]; then
+    if [ ${#NOTARY_ARGS[@]} -gt 0 ]; then
         ZIP="$DIST/$APP_NAME-notarize.zip"
         echo "[release] zipping for notarization"
         ditto -c -k --keepParent "$APP" "$ZIP"
 
         echo "[release] submitting to notarytool"
-        xcrun notarytool submit "$ZIP" \
-            --apple-id "$APPLE_ID" \
-            --password "$APPLE_APP_SPECIFIC_PASSWORD" \
-            --team-id "$APPLE_TEAM_ID" \
-            --wait
+        xcrun notarytool submit "$ZIP" "${NOTARY_ARGS[@]}" --wait
 
         echo "[release] stapling"
         xcrun stapler staple "$APP"
         rm "$ZIP"
     else
-        echo "[release] APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID not all set; skipping notarization"
+        echo "[release] no notarytool credentials (keychain profile '$NOTARY_PROFILE' missing and APPLE_* env vars unset); skipping notarization"
     fi
 fi
 
@@ -101,7 +111,9 @@ cleanup_mount() {
 }
 trap cleanup_mount EXIT
 
-if ! osascript <<APPLESCRIPT
+if [ -n "${WAVE_SKIP_DMG_LAYOUT:-}" ]; then
+    echo "[release] WAVE_SKIP_DMG_LAYOUT set; skipping Finder window styling"
+elif ! osascript <<APPLESCRIPT
 tell application "Finder"
     tell disk "$MOUNT_VOL"
         open
@@ -152,13 +164,9 @@ if [ "$SIGNED" = "1" ]; then
     echo "[release] codesigning DMG"
     codesign --sign "$WAVE_SIGNING_IDENTITY" --options runtime "$DMG"
 
-    if [ -n "${APPLE_ID:-}" ] && [ -n "${APPLE_APP_SPECIFIC_PASSWORD:-}" ] && [ -n "${APPLE_TEAM_ID:-}" ]; then
+    if [ ${#NOTARY_ARGS[@]} -gt 0 ]; then
         echo "[release] notarizing DMG"
-        xcrun notarytool submit "$DMG" \
-            --apple-id "$APPLE_ID" \
-            --password "$APPLE_APP_SPECIFIC_PASSWORD" \
-            --team-id "$APPLE_TEAM_ID" \
-            --wait
+        xcrun notarytool submit "$DMG" "${NOTARY_ARGS[@]}" --wait
         xcrun stapler staple "$DMG"
     fi
 fi
