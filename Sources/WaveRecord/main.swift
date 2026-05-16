@@ -3,31 +3,27 @@ import AVFoundation
 import WaveCore
 
 // CLI harness: record N seconds from the system mic, transcribe via the
-// production ParakeetBackend (same voice-processing wiring the .app uses),
-// print the transcript on stdout, timing + diagnostics on stderr.
+// production ParakeetBackend, print the transcript on stdout, timing +
+// diagnostics on stderr.
 //
 // Usage:
-//   swift run wave-record [seconds] [--no-voice-processing]
+//   swift run wave-record [seconds]
 //
-// Default seconds = 5. Voice processing is on by default.
+// Default seconds = 5.
 
 let args = CommandLine.arguments.dropFirst()
 var seconds: Double = 5
-var voiceProcessing: Bool = false
 
 for arg in args {
     if let n = Double(arg), n > 0, n < 600 {
         seconds = n
-    } else if arg == "--voice-processing" {
-        voiceProcessing = true
     } else if arg == "-h" || arg == "--help" {
         print("""
         wave-record — record from mic, transcribe with Parakeet.
 
-          swift run wave-record [seconds] [--voice-processing]
+          swift run wave-record [seconds]
 
-        Defaults: 5 seconds, voice processing OFF (broken on macOS — see
-        ParakeetBackend.swift).
+        Default: 5 seconds.
         Transcript prints to stdout; diagnostics print to stderr.
         """)
         exit(0)
@@ -37,13 +33,12 @@ for arg in args {
     }
 }
 
-FileHandle.standardError.write(Data("[wave-record] recording \(seconds)s, voice processing = \(voiceProcessing)\n".utf8))
+FileHandle.standardError.write(Data("[wave-record] recording \(seconds)s\n".utf8))
 
 let micStatus = AVCaptureDevice.authorizationStatus(for: .audio)
 FileHandle.standardError.write(Data("[wave-record] mic permission status: \(micStatus.rawValue) (.authorized=3)\n".utf8))
 
 let backend = ParakeetBackend(config: ParakeetBackend.Config(
-    enableVoiceProcessing: voiceProcessing,
     verboseLog: true
 ))
 

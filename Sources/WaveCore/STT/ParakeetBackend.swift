@@ -1,20 +1,19 @@
 #if canImport(AVFoundation) && canImport(Foundation)
 @preconcurrency import AVFoundation
-import AudioToolbox
-import CoreAudio
+import CoreMedia
 import Foundation
 import FluidAudio
 
 /// Local STT backed by FluidAudio's Parakeet TDT v2 (English-only, highest
-/// recall). Captures mic audio via AVAudioEngine with Apple's system voice
-/// processing enabled so background voices and noise are suppressed *before*
-/// audio reaches Parakeet. Buffers 16 kHz mono Float samples; transcribes
-/// the full buffer on `finalize()`. Models are downloaded lazily on the
-/// first `startSession()` call.
+/// recall). Captures mic audio via AVCaptureSession (not AVAudioEngine) so
+/// the input keeps flowing when the user's default audio *output* is a
+/// Bluetooth A2DP speaker or AirPlay receiver — see `ParakeetSession.init`
+/// for the long story. Buffers 16 kHz mono Float samples; transcribes the
+/// full buffer on `finalize()`. Models are downloaded lazily on the first
+/// `startSession()` call.
 public final class ParakeetBackend: STTBackend, @unchecked Sendable {
     public struct Config: Sendable {
         public var modelVersion: AsrModelVersion
-        public var enableVoiceProcessing: Bool
         public var verboseLog: Bool
         /// Queried at the start of every session so changes in user settings
         /// take effect on the next dictation without re-creating the backend.
@@ -22,18 +21,10 @@ public final class ParakeetBackend: STTBackend, @unchecked Sendable {
 
         public init(
             modelVersion: AsrModelVersion = .v2,
-            // Apple's VPIO on macOS AVAudioEngine reports a 9-channel input
-            // format on the M3 Pro built-in mic and then refuses engine.start
-            // with -10875 (format not supported) when the input is routed to
-            // any standard output node. Disabled by default until we find the
-            // right macOS wiring — see Sources/WaveCore/STT/ParakeetBackend.swift
-            // for the broken VPIO graph code, kept around for future debugging.
-            enableVoiceProcessing: Bool = false,
             verboseLog: Bool = false,
             microphoneChoiceProvider: @escaping @Sendable () -> MicrophoneChoice = { .builtIn }
         ) {
             self.modelVersion = modelVersion
-            self.enableVoiceProcessing = enableVoiceProcessing
             self.verboseLog = verboseLog
             self.microphoneChoiceProvider = microphoneChoiceProvider
         }
@@ -43,9 +34,9 @@ public final class ParakeetBackend: STTBackend, @unchecked Sendable {
     private let asrManager: AsrManager
     private let state = LoadState()
     public let log: ParakeetLog
-    /// Fires from the audio render thread with mic RMS each tap (~85 ms at
-    /// 48 kHz / 4096 frames). Set once at startup; captured into each new
-    /// session created by `startSession()`.
+    /// Fires from the audio capture queue with mic RMS for each delivered
+    /// sample buffer. Set once at startup; captured into each new session
+    /// created by `startSession()`.
     public var levelObserver: (@Sendable (Float) -> Void)?
 
     public init(config: Config = Config()) {
@@ -57,14 +48,14 @@ public final class ParakeetBackend: STTBackend, @unchecked Sendable {
     public func startSession() async throws -> STTSession {
         log.log("startSession: awaiting model load")
         try await ensureModelsLoaded()
-        log.log("startSession: models loaded, opening AVAudioEngine session")
+        log.log("startSession: models loaded, opening capture session")
         let session = try ParakeetSession(
             asrManager: asrManager,
             config: config,
             log: log,
             levelObserver: levelObserver
         )
-        log.log("startSession: session active (voiceProcessing=\(config.enableVoiceProcessing))")
+        log.log("startSession: session active")
         return session
     }
 
@@ -138,11 +129,12 @@ final class ParakeetSession: STTSession, @unchecked Sendable {
     let partials: AsyncStream<STTPartial>
     private let continuation: AsyncStream<STTPartial>.Continuation
     private let asrManager: AsrManager
-    private let engine = AVAudioEngine()
-    private let targetFormat: AVAudioFormat
-    private let converter: AVAudioConverter
+    private let captureSession = AVCaptureSession()
+    private let audioOutput = AVCaptureAudioDataOutput()
+    private let captureQueue = DispatchQueue(label: "com.wave.audio.capture")
     private let buffer = SampleBuffer()
     private let log: ParakeetLog
+    private let delegate: AudioCaptureDelegate
 
     init(
         asrManager: AsrManager,
@@ -157,39 +149,26 @@ final class ParakeetSession: STTSession, @unchecked Sendable {
         self.partials = AsyncStream { c = $0 }
         self.continuation = c
 
-        let input = engine.inputNode
-
-        // Pin the input device per user preference BEFORE we read the
-        // negotiated format — the format depends on the bound device.
-        let choice = config.microphoneChoiceProvider()
-        Self.applyMicrophoneChoice(choice, on: input, log: log)
-
-        // Apple system voice processing: AEC + noise/voice suppression. Must
-        // be enabled before the engine starts. Pipeline order:
-        // mic → Apple voice processing → Parakeet.
-        if config.enableVoiceProcessing {
-            do {
-                try input.setVoiceProcessingEnabled(true)
-                log.log("session: voice processing enabled")
-
-                // Voice Processing IO on macOS needs a complete graph (input
-                // routed to an output) for the unit to actually emit audio.
-                // Without it, inputNode delivers noise-floor silence on every
-                // channel. Use mainMixerNode (which auto-attaches to the
-                // output node) with nil format so AVAudioEngine picks a
-                // compatible pair, then mute mainMixer so the user doesn't
-                // hear themselves through the speakers.
-                let mixer = engine.mainMixerNode
-                engine.connect(input, to: mixer, format: nil)
-                mixer.outputVolume = 0
-                log.log("session: VPIO graph wired (input → mainMixer @ vol 0)")
-            } catch {
-                log.log("session: setVoiceProcessingEnabled failed (\(error.localizedDescription)); proceeding without it")
-            }
+        // Why AVCaptureSession instead of AVAudioEngine:
+        // AVAudioEngine on macOS is a full-duplex graph. Even with no
+        // output connections, it implicitly references its outputNode
+        // during prepare()/start() and the engine's clock domain follows
+        // the system default output device. When that device is a
+        // Bluetooth A2DP speaker or an AirPlay receiver, the wireless
+        // clock can't be reconciled with the built-in mic's clock — the
+        // engine silently delivers zero buffers, the macOS mic indicator
+        // never lights, and dictation captures nothing. Filed as Apple
+        // Feedback FB8996889, unfixed for years. AVCaptureSession opens
+        // an input-only IOProc on the device we hand it and ignores the
+        // system default output entirely, so the route doesn't matter.
+        guard let device = Self.resolveCaptureDevice(
+            choice: config.microphoneChoiceProvider(),
+            log: log
+        ) else {
+            throw STTError.engineError("no microphone device available")
         }
+        log.log("session: capturing from \"\(device.localizedName)\" (uniqueID=\(device.uniqueID))")
 
-        let inFormat = input.outputFormat(forBus: 0)
-        log.log("session: input format sampleRate=\(inFormat.sampleRate) channels=\(inFormat.channelCount)")
         guard let target = AVAudioFormat(
             commonFormat: .pcmFormatFloat32,
             sampleRate: 16000,
@@ -198,57 +177,45 @@ final class ParakeetSession: STTSession, @unchecked Sendable {
         ) else {
             throw STTError.engineError("could not create 16 kHz mono Float target format")
         }
-        self.targetFormat = target
-        guard let conv = AVAudioConverter(from: inFormat, to: target) else {
-            throw STTError.engineError("could not create audio converter")
-        }
-        self.converter = conv
 
-        let sink = buffer
-        let format = targetFormat
-        let converterRef = converter
-        let logRef = log
-        let counter = TapCounter()
-        // Tap the input in its native format (after voice processing applies).
-        // We resample to 16 kHz mono Float inside the tap via AVAudioConverter.
-        // Tapping with a different `format:` lets AVAudioEngine attempt the
-        // conversion itself, but with post-voice-processing multi-channel
-        // input that path silently delivers silence — keep manual control.
-        input.installTap(onBus: 0, bufferSize: 4096, format: inFormat) { audioBuffer, _ in
-            let frames = audioBuffer.frameLength
-            let n = counter.bump()
-            if n <= 3 || n % 25 == 0 {
-                logRef.log("tap #\(n): \(frames) frames in")
-            }
-            if let observer = levelObserver {
-                observer(Self.rms(buffer: audioBuffer))
-            }
-            Self.tap(
-                audioBuffer: audioBuffer,
-                inFormat: inFormat,
-                targetFormat: format,
-                converter: converterRef,
-                sink: sink,
-                log: logRef,
-                callIndex: n
-            )
-        }
+        let delegate = AudioCaptureDelegate(
+            targetFormat: target,
+            sink: buffer,
+            log: log,
+            levelObserver: levelObserver
+        )
+        self.delegate = delegate
 
-        engine.prepare()
+        let input: AVCaptureDeviceInput
         do {
-            try engine.start()
-            log.log("session: engine started (mic indicator should be live)")
+            input = try AVCaptureDeviceInput(device: device)
         } catch {
-            log.log("session: engine.start() FAILED — \(error.localizedDescription)")
-            throw STTError.engineError("audio engine start: \(error.localizedDescription)")
+            throw STTError.engineError("AVCaptureDeviceInput: \(error.localizedDescription)")
         }
+
+        captureSession.beginConfiguration()
+        guard captureSession.canAddInput(input) else {
+            captureSession.commitConfiguration()
+            throw STTError.engineError("AVCaptureSession refused mic input")
+        }
+        captureSession.addInput(input)
+
+        guard captureSession.canAddOutput(audioOutput) else {
+            captureSession.commitConfiguration()
+            throw STTError.engineError("AVCaptureSession refused audio output")
+        }
+        captureSession.addOutput(audioOutput)
+        audioOutput.setSampleBufferDelegate(delegate, queue: captureQueue)
+        captureSession.commitConfiguration()
+
+        captureSession.startRunning()
+        log.log("session: AVCaptureSession started (mic indicator should be live)")
     }
 
     func finalize() async throws -> String {
         guard buffer.claimFinalize() else { throw STTError.sessionNotActive }
 
-        engine.stop()
-        engine.inputNode.removeTap(onBus: 0)
+        if captureSession.isRunning { captureSession.stopRunning() }
 
         let captured = buffer.drain()
         let seconds = Double(captured.count) / 16000.0
@@ -282,65 +249,179 @@ final class ParakeetSession: STTSession, @unchecked Sendable {
     }
 
     func cancel() {
-        engine.stop()
-        engine.inputNode.removeTap(onBus: 0)
+        if captureSession.isRunning { captureSession.stopRunning() }
         _ = buffer.drain()
         continuation.finish()
     }
 
-    /// Resolves the user's `MicrophoneChoice` to a specific `AudioDeviceID`
-    /// and pins it on the input node's audio unit. `.systemDefault` is a
-    /// no-op (lets `AVAudioEngine` follow whatever macOS picked).
-    /// `.specific(uid:)` falls back to built-in if that device isn't
-    /// currently connected. If even built-in can't be found, we don't pin
-    /// anything and let the system default stand.
-    static func applyMicrophoneChoice(_ choice: MicrophoneChoice, on input: AVAudioInputNode, log: ParakeetLog) {
-        let target: AudioInputDevice?
+    /// Maps `MicrophoneChoice` onto an `AVCaptureDevice`. CoreAudio device
+    /// UIDs and `AVCaptureDevice.uniqueID` match on macOS for audio devices,
+    /// so the UID a user pinned via Settings (which came from
+    /// `AudioInputDevices.available()`) is the same string we look up here.
+    /// `.specific` falls back to built-in if the device isn't connected;
+    /// `.builtIn` falls back to system default if no built-in mic exists.
+    static func resolveCaptureDevice(choice: MicrophoneChoice, log: ParakeetLog) -> AVCaptureDevice? {
         switch choice {
         case .systemDefault:
-            log.log("session: mic choice = systemDefault (no pin)")
-            return
+            log.log("session: mic choice = systemDefault")
+            return AVCaptureDevice.default(for: .audio)
         case .builtIn:
-            target = AudioInputDevices.builtIn()
-            if target == nil {
-                log.log("session: mic choice = builtIn but no built-in found — leaving system default")
-            }
+            log.log("session: mic choice = builtIn")
+            if let dev = builtInCaptureDevice() { return dev }
+            log.log("session: built-in mic not found — falling back to system default")
+            return AVCaptureDevice.default(for: .audio)
         case .specific(let uid):
-            if let found = AudioInputDevices.find(uid: uid) {
-                target = found
-            } else {
-                log.log("session: mic choice = specific(uid=\(uid)) not connected — falling back to built-in")
-                target = AudioInputDevices.builtIn()
-                if target == nil {
-                    log.log("session: built-in not found either — leaving system default")
-                }
+            if let dev = audioDiscoverySession.devices.first(where: { $0.uniqueID == uid }) {
+                log.log("session: mic choice = specific(uid=\(uid))")
+                return dev
             }
+            log.log("session: mic choice = specific(uid=\(uid)) not connected — falling back to built-in")
+            if let dev = builtInCaptureDevice() { return dev }
+            return AVCaptureDevice.default(for: .audio)
+        }
+    }
+
+    private static func builtInCaptureDevice() -> AVCaptureDevice? {
+        if let dev = AVCaptureDevice.default(.microphone, for: .audio, position: .unspecified) {
+            return dev
+        }
+        // Fallback: cross-reference CoreAudio's transport-type-based built-in
+        // detection. Some Macs report `.microphone` via the discovery API but
+        // `AVCaptureDevice.default(.microphone, ...)` returns nil; matching
+        // by UID from the HAL still works.
+        if let coreaudioBuiltIn = AudioInputDevices.builtIn() {
+            return audioDiscoverySession.devices.first(where: { $0.uniqueID == coreaudioBuiltIn.uid })
+        }
+        return nil
+    }
+
+    private static let audioDiscoverySession = AVCaptureDevice.DiscoverySession(
+        deviceTypes: [.microphone],
+        mediaType: .audio,
+        position: .unspecified
+    )
+}
+
+/// AVCaptureAudioDataOutput delivers `CMSampleBuffer`s on the capture queue.
+/// Each callback: copy PCM data into an `AVAudioPCMBuffer` in the device's
+/// native format, then resample to 16 kHz mono Float via `AVAudioConverter`
+/// and append to the session's shared sample sink. The converter is created
+/// lazily on the first buffer (input format isn't known until then) and
+/// recreated if the format ever changes mid-session.
+fileprivate final class AudioCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate, @unchecked Sendable {
+    private let targetFormat: AVAudioFormat
+    private let sink: SampleBuffer
+    private let log: ParakeetLog
+    private let levelObserver: (@Sendable (Float) -> Void)?
+    private var converter: AVAudioConverter?
+    private var converterInputFormat: AVAudioFormat?
+    private let counter = TapCounter()
+
+    init(
+        targetFormat: AVAudioFormat,
+        sink: SampleBuffer,
+        log: ParakeetLog,
+        levelObserver: (@Sendable (Float) -> Void)?
+    ) {
+        self.targetFormat = targetFormat
+        self.sink = sink
+        self.log = log
+        self.levelObserver = levelObserver
+    }
+
+    func captureOutput(
+        _ output: AVCaptureOutput,
+        didOutput sampleBuffer: CMSampleBuffer,
+        from connection: AVCaptureConnection
+    ) {
+        let n = counter.bump()
+        guard let pcmBuffer = Self.pcmBuffer(from: sampleBuffer) else {
+            if n <= 3 { log.log("sample #\(n): could not extract PCM buffer") }
+            return
+        }
+        if n <= 3 || n % 25 == 0 {
+            log.log("sample #\(n): \(pcmBuffer.frameLength) frames in (rate=\(pcmBuffer.format.sampleRate) ch=\(pcmBuffer.format.channelCount))")
         }
 
-        guard let device = target else { return }
-        guard let unit = input.audioUnit else {
-            log.log("session: inputNode.audioUnit is nil — cannot pin device")
+        if let observer = levelObserver {
+            observer(Self.rms(buffer: pcmBuffer))
+        }
+
+        if converter == nil || converterInputFormat?.isEqual(pcmBuffer.format) == false {
+            converterInputFormat = pcmBuffer.format
+            converter = AVAudioConverter(from: pcmBuffer.format, to: targetFormat)
+            if converter == nil {
+                log.log("sample #\(n): AVAudioConverter creation FAILED for input \(pcmBuffer.format)")
+                return
+            }
+            log.log("sample #\(n): converter ready for input \(pcmBuffer.format)")
+        }
+        guard let conv = converter else { return }
+
+        let ratio = targetFormat.sampleRate / pcmBuffer.format.sampleRate
+        let outCapacity = AVAudioFrameCount(Double(pcmBuffer.frameLength) * ratio + 8)
+        guard outCapacity > 0,
+              let outBuffer = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: outCapacity)
+        else {
+            if n <= 3 { log.log("sample #\(n): outCapacity=\(outCapacity) — skip") }
             return
         }
-        var id = device.id
-        let status = AudioUnitSetProperty(
-            unit,
-            kAudioOutputUnitProperty_CurrentDevice,
-            kAudioUnitScope_Global,
-            0,
-            &id,
-            UInt32(MemoryLayout<AudioDeviceID>.size)
-        )
-        if status == noErr {
-            log.log("session: pinned input to \"\(device.name)\" (uid=\(device.uid), id=\(device.id))")
-        } else {
-            log.log("session: AudioUnitSetProperty failed (status=\(status)) pinning \"\(device.name)\"")
+
+        var error: NSError?
+        let supplied = ConverterSuppliedFlag()
+        // .noDataNow (not .endOfStream) after supplying this buffer —
+        // .endOfStream would close the converter to all subsequent input.
+        let status = conv.convert(to: outBuffer, error: &error) { _, statusOut in
+            if supplied.value { statusOut.pointee = .noDataNow; return nil }
+            supplied.value = true; statusOut.pointee = .haveData
+            return pcmBuffer
         }
+        guard error == nil,
+              outBuffer.frameLength > 0,
+              let channel = outBuffer.floatChannelData?[0]
+        else {
+            if n <= 3 {
+                log.log("sample #\(n): convert status=\(status.rawValue) error=\(error?.localizedDescription ?? "nil") outFrames=\(outBuffer.frameLength)")
+            }
+            return
+        }
+
+        let count = Int(outBuffer.frameLength)
+        let chunk = Array(UnsafeBufferPointer(start: channel, count: count))
+        sink.append(chunk)
+    }
+
+    /// Copies the CMSampleBuffer's PCM payload into a freshly allocated
+    /// AVAudioPCMBuffer in the same format. The audio data is copied (not
+    /// referenced) so the CMSampleBuffer can be released immediately after
+    /// this returns.
+    private static func pcmBuffer(from sampleBuffer: CMSampleBuffer) -> AVAudioPCMBuffer? {
+        guard let formatDescription = CMSampleBufferGetFormatDescription(sampleBuffer),
+              let asbdPtr = CMAudioFormatDescriptionGetStreamBasicDescription(formatDescription) else {
+            return nil
+        }
+        var asbd = asbdPtr.pointee
+        guard let format = AVAudioFormat(streamDescription: &asbd) else { return nil }
+
+        let numFrames = Int32(CMSampleBufferGetNumSamples(sampleBuffer))
+        guard numFrames > 0,
+              let pcmBuffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(numFrames))
+        else { return nil }
+        pcmBuffer.frameLength = AVAudioFrameCount(numFrames)
+
+        let status = CMSampleBufferCopyPCMDataIntoAudioBufferList(
+            sampleBuffer,
+            at: 0,
+            frameCount: numFrames,
+            into: pcmBuffer.mutableAudioBufferList
+        )
+        guard status == noErr else { return nil }
+        return pcmBuffer
     }
 
     /// RMS of the first channel, Float32-only. Returns 0 if the buffer is
     /// in a non-float format. Fast: single channel, no allocation.
-    static func rms(buffer: AVAudioPCMBuffer) -> Float {
+    private static func rms(buffer: AVAudioPCMBuffer) -> Float {
         guard let channelData = buffer.floatChannelData else { return 0 }
         let n = Int(buffer.frameLength)
         guard n > 0 else { return 0 }
@@ -351,70 +432,6 @@ final class ParakeetSession: STTSession, @unchecked Sendable {
             sumSq += s * s
         }
         return (sumSq / Float(n)).squareRoot()
-    }
-
-    private static func tap(
-        audioBuffer: AVAudioPCMBuffer,
-        inFormat: AVAudioFormat,
-        targetFormat: AVAudioFormat,
-        converter: AVAudioConverter,
-        sink: SampleBuffer,
-        log: ParakeetLog,
-        callIndex: Int
-    ) {
-        let ratio = 16000.0 / inFormat.sampleRate
-        let outCapacity = AVAudioFrameCount(Double(audioBuffer.frameLength) * ratio + 8)
-        guard outCapacity > 0,
-              let outBuffer = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: outCapacity)
-        else {
-            if callIndex <= 3 { log.log("tap #\(callIndex): outCapacity=\(outCapacity) — skip") }
-            return
-        }
-
-        var error: NSError?
-        let supplied = ConverterSuppliedFlag()
-        // CRITICAL: signal .noDataNow (not .endOfStream) after supplying this
-        // tap's buffer. .endOfStream tells the converter the entire stream is
-        // over and it refuses all subsequent input — which would freeze the
-        // recording after the very first tap callback.
-        let status = converter.convert(to: outBuffer, error: &error) { _, statusOut in
-            if supplied.value { statusOut.pointee = .noDataNow; return nil }
-            supplied.value = true; statusOut.pointee = .haveData
-            return audioBuffer
-        }
-        // Probe every input channel — voice-processed input sometimes places
-        // the processed signal in a non-zero channel.
-        var inMax: Float = 0
-        var perChannelMax: [Float] = []
-        if let channelData = audioBuffer.floatChannelData {
-            let n = Int(audioBuffer.frameLength)
-            let chCount = Int(audioBuffer.format.channelCount)
-            for ch in 0..<chCount {
-                var m: Float = 0
-                let buf = channelData[ch]
-                for i in 0..<n { let v = abs(buf[i]); if v > m { m = v } }
-                perChannelMax.append(m)
-                if m > inMax { inMax = m }
-            }
-        }
-
-        if callIndex <= 3 {
-            let perCh = perChannelMax.enumerated().map { "ch\($0)=\(String(format: "%.3f", $1))" }.joined(separator: " ")
-            log.log("tap #\(callIndex): convert status=\(status.rawValue) error=\(error?.localizedDescription ?? "nil") outFrames=\(outBuffer.frameLength) inMax=\(String(format: "%.3f", inMax)) [\(perCh)]")
-        }
-        guard error == nil,
-              outBuffer.frameLength > 0,
-              let channel = outBuffer.floatChannelData?[0]
-        else { return }
-
-        let count = Int(outBuffer.frameLength)
-        var outMax: Float = 0
-        for i in 0..<count { let v = abs(channel[i]); if v > outMax { outMax = v } }
-        if callIndex <= 3 || (callIndex % 25 == 0) {
-            log.log("tap #\(callIndex): outMax=\(String(format: "%.3f", outMax))")
-        }
-        let chunk = Array(UnsafeBufferPointer(start: channel, count: count))
-        sink.append(chunk)
     }
 }
 
