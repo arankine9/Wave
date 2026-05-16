@@ -35,11 +35,13 @@ fi
 
 mkdir -p "$DIST"
 
-# Pick how we authenticate notarytool. Prefer a keychain profile (local dev),
-# fall back to Apple ID + app-specific password (CI).
-NOTARY_PROFILE="${WAVE_NOTARY_PROFILE:-wave-notary}"
+# Pick how we authenticate notarytool. Use the keychain profile by default
+# (set up locally with `xcrun notarytool store-credentials`); fall back to
+# Apple ID + app-specific password env vars when the profile is unset
+# (set WAVE_NOTARY_PROFILE="" in CI to force the env-var path).
+NOTARY_PROFILE="${WAVE_NOTARY_PROFILE-wave-notary}"
 NOTARY_ARGS=()
-if security find-generic-password -s "com.apple.gke.notary.tool" -a "$NOTARY_PROFILE" >/dev/null 2>&1; then
+if [ -n "$NOTARY_PROFILE" ]; then
     NOTARY_ARGS=(--keychain-profile "$NOTARY_PROFILE")
 elif [ -n "${APPLE_ID:-}" ] && [ -n "${APPLE_APP_SPECIFIC_PASSWORD:-}" ] && [ -n "${APPLE_TEAM_ID:-}" ]; then
     NOTARY_ARGS=(--apple-id "$APPLE_ID" --password "$APPLE_APP_SPECIFIC_PASSWORD" --team-id "$APPLE_TEAM_ID")
