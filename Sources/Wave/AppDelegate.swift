@@ -98,7 +98,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             cleanup: pipeline,
             paster: paster,
             appState: appState,
-            logger: history
+            logger: history,
+            media: OutputMuteMediaController(),
+            mediaMuteEnabled: { [prefsRef] in prefsRef.value.muteAudioWhileRecording }
         )
         self.orchestrator = orchestrator
 

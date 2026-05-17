@@ -28,6 +28,8 @@ public actor DictationOrchestrator {
     private let appState: AppState
     private let clock: WaveClock
     private let logger: DictationLogger?
+    private let media: MediaController
+    private let mediaMuteEnabled: @Sendable () -> Bool
 
     private var activeSession: STTSession?
     private var activeStartedAt: TimeInterval = 0
@@ -36,6 +38,10 @@ public actor DictationOrchestrator {
     /// finalize on stop. A `.stopRecording` without commit means the press
     /// cycle ended without ever crossing the hold threshold — discard.
     private var committed: Bool = false
+    /// True when we muted the output during the current cycle and therefore
+    /// owe it a restore. Stays false when the device was already muted, when
+    /// nothing was playing, or when the preference is off.
+    private var mutedAudio: Bool = false
 
     public init(
         backend: STTBackend,
@@ -43,7 +49,9 @@ public actor DictationOrchestrator {
         paster: Paster,
         appState: AppState,
         clock: WaveClock = RealClock(),
-        logger: DictationLogger? = nil
+        logger: DictationLogger? = nil,
+        media: MediaController = NoopMediaController(),
+        mediaMuteEnabled: @escaping @Sendable () -> Bool = { false }
     ) {
         self.backend = backend
         self.cleanup = cleanup
@@ -51,6 +59,8 @@ public actor DictationOrchestrator {
         self.appState = appState
         self.clock = clock
         self.logger = logger
+        self.media = media
+        self.mediaMuteEnabled = mediaMuteEnabled
     }
 
     public func handle(_ event: HotkeyEvent) async {
@@ -70,6 +80,7 @@ public actor DictationOrchestrator {
         activeSession?.cancel()
         activeSession = nil
         committed = false
+        await resumeMediaIfNeeded()
         appState.setStatus(.idle)
     }
 
@@ -108,6 +119,9 @@ public actor DictationOrchestrator {
         appState.setPartial("")
         activeStartedAt = clock.now()
         _ = reason
+        if mediaMuteEnabled() {
+            mutedAudio = await media.pauseIfPlaying()
+        }
     }
 
     /// Press cycle ended without becoming a hold or lock. Tear down the
@@ -133,6 +147,9 @@ public actor DictationOrchestrator {
             return
         }
         committed = false
+
+        // Audio is captured; let music come back while we transcribe/paste.
+        await resumeMediaIfNeeded()
 
         var trace = DictationTrace()
 
@@ -177,5 +194,11 @@ public actor DictationOrchestrator {
 
         appState.setStatus(.idle)
         logger?.record(trace)
+    }
+
+    private func resumeMediaIfNeeded() async {
+        guard mutedAudio else { return }
+        mutedAudio = false
+        await media.resume()
     }
 }

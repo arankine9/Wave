@@ -130,6 +130,76 @@ final class DictationOrchestratorTests: XCTestCase {
         XCTAssertEqual(appState.status, .idle)
     }
 
+    func testMediaPausesOnRecordAndResumesOnStop() async {
+        let backend = MockSTTBackend(finalText: "hello")
+        let pipeline = CleanupPipeline(client: StubCleanupClient(), model: "stub")
+        let paster = SpyPaster()
+        let appState = AppState()
+        let media = SpyMediaController(playing: true)
+
+        let orch = DictationOrchestrator(
+            backend: backend,
+            cleanup: pipeline,
+            paster: paster,
+            appState: appState,
+            media: media,
+            mediaMuteEnabled: { true }
+        )
+
+        await orch.handle(.startRecording(reason: .hold))
+        XCTAssertEqual(media.pauseCalls, 1)
+        XCTAssertEqual(media.resumeCalls, 0)
+
+        await orch.handle(.stopRecording)
+        XCTAssertEqual(media.pauseCalls, 1)
+        XCTAssertEqual(media.resumeCalls, 1)
+    }
+
+    func testMediaDoesNotResumeWhenNothingWasPlaying() async {
+        let backend = MockSTTBackend(finalText: "hello")
+        let pipeline = CleanupPipeline(client: StubCleanupClient(), model: "stub")
+        let paster = SpyPaster()
+        let appState = AppState()
+        let media = SpyMediaController(playing: false)
+
+        let orch = DictationOrchestrator(
+            backend: backend,
+            cleanup: pipeline,
+            paster: paster,
+            appState: appState,
+            media: media,
+            mediaMuteEnabled: { true }
+        )
+
+        await orch.handle(.startRecording(reason: .hold))
+        await orch.handle(.stopRecording)
+        XCTAssertEqual(media.pauseCalls, 1)
+        XCTAssertEqual(media.resumeCalls, 0,
+            "no resume should fire if nothing was playing when we tried to pause")
+    }
+
+    func testMediaIsLeftAloneWhenPreferenceIsOff() async {
+        let backend = MockSTTBackend(finalText: "hello")
+        let pipeline = CleanupPipeline(client: StubCleanupClient(), model: "stub")
+        let paster = SpyPaster()
+        let appState = AppState()
+        let media = SpyMediaController(playing: true)
+
+        let orch = DictationOrchestrator(
+            backend: backend,
+            cleanup: pipeline,
+            paster: paster,
+            appState: appState,
+            media: media,
+            mediaMuteEnabled: { false }
+        )
+
+        await orch.handle(.startRecording(reason: .hold))
+        await orch.handle(.stopRecording)
+        XCTAssertEqual(media.pauseCalls, 0)
+        XCTAssertEqual(media.resumeCalls, 0)
+    }
+
     func testEmptyFinalTranscriptSkipsPaste() async {
         let backend = MockSTTBackend(finalText: "")
         let pipeline = CleanupPipeline(client: StubCleanupClient(), model: "stub")
@@ -207,6 +277,30 @@ private final class TraceCollector: DictationLogger, @unchecked Sendable {
     private var traces: [DictationTrace] = []
     var last: DictationTrace? { lock.withLock { traces.last } }
     func record(_ trace: DictationTrace) { lock.withLock { traces.append(trace) } }
+}
+
+private final class SpyMediaController: MediaController, @unchecked Sendable {
+    private let lock = NSLock()
+    private var _playing: Bool
+    private var _pauseCalls = 0
+    private var _resumeCalls = 0
+    var pauseCalls: Int { lock.withLock { _pauseCalls } }
+    var resumeCalls: Int { lock.withLock { _resumeCalls } }
+
+    init(playing: Bool) { self._playing = playing }
+
+    func pauseIfPlaying() async -> Bool {
+        lock.withLock {
+            _pauseCalls += 1
+            guard _playing else { return false }
+            _playing = false
+            return true
+        }
+    }
+
+    func resume() async {
+        lock.withLock { _resumeCalls += 1 }
+    }
 }
 
 private final class StateCollector: @unchecked Sendable {

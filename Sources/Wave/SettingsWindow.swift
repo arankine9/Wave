@@ -70,6 +70,9 @@ private struct SettingsView: View {
                 if let launchAtLoginNote {
                     Text(launchAtLoginNote).font(.caption).foregroundStyle(.secondary)
                 }
+                Toggle("Mute audio while recording", isOn: $snapshot.muteAudioWhileRecording)
+                Text("Wave silences your default output (Music, Spotify, browser audio, AirPlay) while you dictate, then unmutes it when you stop. The player keeps running, so audio resumes instantly.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
             Section("Permissions") {
                 permissionRow(

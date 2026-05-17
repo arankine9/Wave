@@ -67,6 +67,7 @@ public struct Preferences: Sendable, Equatable {
     public var holdThresholdMs: Int
     public var doubleTapWindowMs: Int
     public var microphoneChoice: MicrophoneChoice
+    public var muteAudioWhileRecording: Bool
 
     public init(
         cleanupModel: String = "qwen2.5-coder:7b-instruct",
@@ -75,7 +76,8 @@ public struct Preferences: Sendable, Equatable {
         cleanupMode: CleanupMode = .auto,
         holdThresholdMs: Int = 250,
         doubleTapWindowMs: Int = 280,
-        microphoneChoice: MicrophoneChoice = .builtIn
+        microphoneChoice: MicrophoneChoice = .builtIn,
+        muteAudioWhileRecording: Bool = true
     ) {
         self.cleanupModel = cleanupModel
         self.ollamaURL = ollamaURL
@@ -84,6 +86,7 @@ public struct Preferences: Sendable, Equatable {
         self.holdThresholdMs = holdThresholdMs
         self.doubleTapWindowMs = doubleTapWindowMs
         self.microphoneChoice = microphoneChoice
+        self.muteAudioWhileRecording = muteAudioWhileRecording
     }
 
     public static func loadFromEnvironment(_ env: [String: String] = ProcessInfo.processInfo.environment) -> Preferences {
@@ -107,9 +110,9 @@ public struct Preferences: Sendable, Equatable {
 public final class PreferencesStore: @unchecked Sendable {
     // MARK: - Persistence
     // Most prefs are in-memory only today (loaded from env vars at startup);
-    // `microphoneChoice` is the exception and persists via UserDefaults so a
-    // user's pinned mic survives restarts.
+    // a small set persists via UserDefaults so user choices survive restarts.
     private static let micChoiceKey = "WaveMicrophoneChoice"
+    private static let muteAudioKey = "WaveMuteAudioWhileRecording"
 
     private let queue = DispatchQueue(label: "com.wave.prefs")
     private var _value: Preferences
@@ -120,6 +123,9 @@ public final class PreferencesStore: @unchecked Sendable {
         if let raw = UserDefaults.standard.string(forKey: Self.micChoiceKey),
            let choice = MicrophoneChoice(rawValue: raw) {
             seeded.microphoneChoice = choice
+        }
+        if UserDefaults.standard.object(forKey: Self.muteAudioKey) != nil {
+            seeded.muteAudioWhileRecording = UserDefaults.standard.bool(forKey: Self.muteAudioKey)
         }
         self._value = seeded
     }
@@ -140,6 +146,7 @@ public final class PreferencesStore: @unchecked Sendable {
         } else {
             UserDefaults.standard.set(next.microphoneChoice.rawValue, forKey: Self.micChoiceKey)
         }
+        UserDefaults.standard.set(next.muteAudioWhileRecording, forKey: Self.muteAudioKey)
         onChange?(next)
     }
 }
