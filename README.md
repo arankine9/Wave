@@ -1,5 +1,7 @@
 # Wave
 
+[![CI](https://github.com/arankine9/Wave/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/arankine9/Wave/actions/workflows/ci.yml)
+
 Native macOS dictation built for coding. Hold the Fn (Globe) key, talk, release, get cleaned-up code-aware text in the focused app. Local STT, local cleanup, no dock icon, just a small menu bar item near the battery.
 
 The full spec lives in `project.md`. The active task list lives in `TODO.md`.
@@ -17,13 +19,35 @@ The full spec lives in `project.md`. The active task list lives in `TODO.md`.
 
 ```bash
 swift build              # SPM debug build
-swift test               # run unit tests (35 currently)
+swift test               # run unit tests (see Testing below)
 scripts/build-app.sh     # produce build/Wave.app (ad-hoc signed)
 open build/Wave.app      # run; look in the menu bar near the battery
 scripts/release.sh       # produce dist/Wave.dmg with drag-to-Applications layout
 ```
 
 Run Wave from `/Applications/Wave.app` (drag from the DMG) rather than directly from `build/`. macOS guards `~/Desktop`, `~/Downloads`, and `~/Documents` with TCC, and an Accessibility grant for a bundle living inside one of those folders can fail to stick. The DMG's branded background is generated at `Resources/dmg-background.tiff` (a HiDPI multi-resolution TIFF — 600×400 @1×, 1200×800 @2×); replace it with your own via `tiffutil -cathidpicheck bg-1x.png bg-2x.png -out Resources/dmg-background.tiff` to use custom artwork.
+
+## Testing
+
+CI runs `swift test` on every push and pull request to `main` (see [`.github/workflows/ci.yml`](.github/workflows/ci.yml) — status badge at the top of this README). The suite is 100+ tests covering the runtime pipeline end-to-end with stubs at the I/O boundaries, plus offline fixture-driven probes for the LLM cleanup path. Categorically:
+
+- **Hotkey state machine** (`HotkeyControllerTests`). Hold-to-dictate threshold and double-tap-to-lock semantics on an injectable `WaveClock` — no real timers, no real keys, fully deterministic.
+- **Orchestrator end-to-end** (`DictationOrchestratorTests`, `EndToEndIntegrationTests`). Drive the production `DictationOrchestrator` from a synthetic Fn-press through cleanup to paste, using `StubBackend` + `StubCleanupClient` + `SpyPaster`. Pins the same code path `AppDelegate` constructs in production.
+- **Deterministic cleanup** (`CleanupPipelineTests`, `HeuristicCleanupTests`, `SpacingAndCasingTests`, `DisfluencyFilterTests`, `CleanupModeTests`). Filler removal, stutter dedup, spacing and capitalization, identifier preservation. Pure functions, microsecond-fast.
+- **Gate decisions** (`SkipGateTests`, `FixtureGateTests`). The "skip LLM for plain prose, never skip identifier spellings" gate is pinned against the `cleanup-pairs.json` and `identifier-spelling.json` fixture corpora.
+- **Hallucination audit** (`HallucinationFixtureTests`). Structural validation of the `hallucination-audit.json` corpus — the actual "did the LLM invent tokens" check runs via `scripts/judge.sh` against Ollama, but the corpus shape is gated in CI so the judge run can't silently no-op.
+- **History golden file** (`HistoryGoldenTests`). Replays the user's real dictation history (when present) through `DeterministicCleanup` and writes a before/after report; no-ops in CI where no history exists.
+- **Token budget benchmark** (`TokenBudgetBenchmarkTests`). Walks every cleanup-pair fixture and asserts input-token p95 ≤ 200 — the project's P3 token budget gate, enforced in CI.
+- **Latency budget benchmark** (`LatencyBudgetBenchmarkTests`). XCTest `measure` block over the stub orchestrator hold→paste cycle. The fixed-budget assertion catches order-of-magnitude regressions and `XCTClockMetric` records baselines Xcode can diff against in detail.
+- **Identity cache** (`IdentityCacheTests`). Frequent-input bypass counters; verifies the LLM gets skipped once a pattern crosses threshold.
+- **History logging** (`HistoryLoggerTests`). JSONL round-trips and schema invariants.
+- **System prompt** (`SystemPromptTests`). Pins the cleanup prompt exactly — drift here is a behavior regression nobody else would catch.
+- **Microphone selection** (`MicrophoneChoiceTests`). Default-device fallback and explicit-device routing logic.
+- **Ollama probe** (`OllamaHealthProbeTests`). Reachability + model-presence error mapping (so a missing model surfaces as a clear UI error, not a stack trace).
+- **AppState transitions** (`AppStateTests`). Status enum and observer fan-out.
+- **Paste** (`ClipboardPasterTests`). Clipboard restore semantics so dictation never strands the user's prior clipboard content.
+
+The full transcribe path through Parakeet TDT v2 runs as an opt-in integration test gated by `WAVE_RUN_PARAKEET_TEST=1` (`ParakeetBackendTests`) — it downloads several hundred MB of CoreML models on first run, so it's off by default. End-to-end latency probing against a live Ollama is wrapped in `scripts/bench-latency.sh` (requires recorded audio fixtures, see `Tests/fixtures/audio/README.md`); the LLM hallucination judge is `scripts/judge.sh`.
 
 ## First-run permissions
 
@@ -36,7 +60,7 @@ macOS will prompt for these the first time the app needs them. You can also see 
 
 If the menu bar icon shows "Status: Grant Accessibility in Privacy & Security", the Fn monitor couldn't register — flip the toggle in the Accessibility pane and quit/relaunch the app. (No Input Monitoring grant is required: modifier-flag changes ride on the Accessibility pipeline, so macOS never prompts "would like to receive keystrokes from any application".)
 
-Wave also silently claims the Fn (Globe) key on every launch so the macOS emoji picker, Start Dictation overlay, and Change Input Source actions never fire while the app is running. This is done by writing `AppleFnUsageType=0` to `com.apple.HIToolbox` and posting the `com.apple.KeyboardUIModeDidChange` distributed notification — the same signal System Settings posts when you flip "Press 🌐 key to". No logout or System Settings detour is needed. See `Sources/WaveCore/Hotkey/FnSystemPreference.swift` for the discovery story and rationale.
+Wave also silently claims the Fn (Globe) key on every launch so the macOS emoji picker, Start Dictation overlay, and Change Input Source actions never fire while the app is running. This is done by writing `AppleFnUsageType=0` to `com.apple.HIToolbox` and posting the `com.apple.KeyboardUIModeDidChange` distributed notification — the same signal System Settings posts when you flip "Press 🌐 key to". No logout or System Settings detour is needed. The full debugging writeup — symptom, what was tried, what failed, and why this specific notification was load-bearing — is in [docs/fn-key-debugging.md](docs/fn-key-debugging.md). The implementation lives in `Sources/WaveCore/Hotkey/FnSystemPreference.swift`.
 
 ## Speech-to-text setup
 
@@ -85,7 +109,7 @@ Sources/
 ├── Wave/         executable target — AppDelegate, status bar, settings/history/pill windows
 └── WaveCore/     library target — state, hotkey, audio, stt, cleanup, paste, history, permissions
 Tests/
-└── WaveCoreTests/   35 tests (gate, hotkey, identity cache, history, system prompt, orchestrator, fixtures)
+└── WaveCoreTests/   100+ tests — see [Testing](#testing) for the category breakdown
 Resources/
 ├── Info.plist           LSUIElement = true (no dock icon)
 └── Wave.entitlements
