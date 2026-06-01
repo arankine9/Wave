@@ -10,8 +10,4 @@ public enum AppPaths {
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir
     }
-
-    public static func identityCacheURL() -> URL {
-        appSupportDirectory().appendingPathComponent("identity-cache.json")
-    }
 }

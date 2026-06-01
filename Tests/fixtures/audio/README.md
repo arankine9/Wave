@@ -6,7 +6,7 @@ The end-to-end latency benchmark (`scripts/bench-latency.sh`) and the STT smoke 
 
 Record 20 short clips (3–6 seconds each) in 16 kHz mono WAV at `Tests/fixtures/audio/01.wav` … `20.wav`. Pair each `NN.wav` with an `NN.txt` containing the **expected raw transcript** (what Parakeet should produce, not the cleaned output).
 
-Suggested prompts (match the fixture mix in `cleanup-pairs.json`):
+Suggested prompts (a mix of spoken code and plain prose):
 
 | File | Spoken prompt |
 |------|---------------|

@@ -1,6 +1,8 @@
 # Wave (native) — TODO
 
-**Status: spec complete (2026-05-10).** Every requirement in `project.md` has a green test, a runnable script, or a documented manual gate in `SHIPPING.md`. The remaining items below need user-supplied resources (Apple Developer ID for notarization, recorded audio for end-to-end latency, a live Ollama for the LLM judge).
+**Status: spec complete (2026-05-10).** Every requirement in `project.md` has a green test, a runnable script, or a documented manual gate in `SHIPPING.md`. The remaining items below need user-supplied resources (Apple Developer ID for notarization, recorded audio for end-to-end latency).
+
+> **Note (later change):** the LLM/Ollama cleanup stage has since been removed — cleanup is now the deterministic pure-Swift pass that always ran ahead of the model. History below describing `OllamaClient`, `CleanupPipeline`, the LLM judge, etc. is kept as a record of what was built. See `CHANGELOG.md` for the removal.
 
 Authoritative spec: `project.md`. Each loop iteration historically picked the top item under `## Todo`, completed it, moved it to `## Done`, committed, and exited.
 
@@ -24,7 +26,7 @@ Authoritative spec: `project.md`. Each loop iteration historically picked the to
 (S1, S2, S3 done — see Done; **S4** end-to-end latency probe deferred to `scripts/bench-latency.sh` since it needs recorded audio fixtures, see SHIPPING.md)
 
 ### 5. Cleanup pipeline (token-efficient)
-(C1–C8 done — see Done. LLM-judge run deferred to `scripts/judge.sh` which needs a live Ollama, see SHIPPING.md)
+(C1–C8 done — see Done. The LLM/Ollama stage was later removed; cleanup is now the deterministic pure-Swift pass. See CHANGELOG.md.)
 
 ### 6. Paste
 (P1, P2 done — see Done; permissions surface lives in Settings → Permissions. P3 sandbox test folded into smoke harness — `scripts/smoke.sh` boots the app and verifies it doesn't crash registering its event taps.)
@@ -36,7 +38,7 @@ Authoritative spec: `project.md`. Each loop iteration historically picked the to
 (D1, D2 done — see Done.)
 
 ### 9. Performance gates
-(G1 deferred — needs real Ollama + recorded audio. Harness in `scripts/bench-latency.sh`. See SHIPPING.md.)
+(G1 deferred — needs recorded audio. Harness in `scripts/bench-latency.sh`. See SHIPPING.md.)
 (G2, G3 covered — see Done)
 
 ### 10. Packaging & signing

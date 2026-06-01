@@ -56,11 +56,7 @@ private struct HistoryView: View {
     private var filtered: [HistoryLine] {
         guard !query.isEmpty else { return lines }
         let q = query.lowercased()
-        return lines.filter {
-            $0.finalText.lowercased().contains(q)
-                || $0.rawTranscript.lowercased().contains(q)
-                || $0.path.lowercased().contains(q)
-        }
+        return lines.filter { $0.finalText.lowercased().contains(q) }
     }
 
     var body: some View {
@@ -279,7 +275,6 @@ private struct HistoryCard: View {
     let now: Date
     let query: String
     @State private var didCopy = false
-    @State private var showRaw = false
     @State private var hovered = false
 
     private static let isoParser: ISO8601DateFormatter = {
@@ -290,10 +285,6 @@ private struct HistoryCard: View {
 
     private var date: Date? { Self.isoParser.date(from: entry.timestampISO) }
 
-    private var hasRaw: Bool {
-        !entry.rawTranscript.isEmpty && entry.rawTranscript != entry.finalText
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
@@ -301,8 +292,6 @@ private struct HistoryCard: View {
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(.secondary)
                     .help(date.map { $0.formatted(date: .abbreviated, time: .standard) } ?? entry.timestampISO)
-
-                pathBadge
 
                 Spacer(minLength: 8)
 
@@ -317,33 +306,6 @@ private struct HistoryCard: View {
                 .foregroundStyle(.primary)
                 .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
-
-            if hasRaw {
-                Button {
-                    withAnimation(.easeInOut(duration: 0.18)) { showRaw.toggle() }
-                } label: {
-                    HStack(spacing: 3) {
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 9, weight: .bold))
-                            .rotationEffect(.degrees(showRaw ? 90 : 0))
-                        Text(showRaw ? "Hide original" : "Show original")
-                            .font(.system(size: 11, weight: .medium))
-                    }
-                    .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-
-                if showRaw {
-                    Text(SearchHighlight.attributed(entry.rawTranscript, query: query))
-                        .font(.system(size: 12, design: .monospaced))
-                        .foregroundStyle(.secondary)
-                        .textSelection(.enabled)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(10)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                }
-            }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
@@ -362,24 +324,6 @@ private struct HistoryCard: View {
             Button("Copy text") { copyText() }
             Button("Copy entry as JSON") { copyEntryJSON() }
         }
-    }
-
-    private var pathBadge: some View {
-        let cleaned = entry.path.lowercased() != "skipped"
-        let color: Color = cleaned
-            ? Color(red: 0.32, green: 0.58, blue: 1.00)
-            : Color(red: 0.20, green: 0.74, blue: 0.50)
-        let label = cleaned ? "Cleaned" : "Raw"
-        return HStack(spacing: 3) {
-            Circle().fill(color).frame(width: 5, height: 5)
-            Text(label)
-                .font(.system(size: 10, weight: .semibold))
-                .tracking(0.2)
-        }
-        .padding(.horizontal, 7).padding(.vertical, 2)
-        .background(color.opacity(0.14), in: Capsule(style: .continuous))
-        .overlay(Capsule(style: .continuous).strokeBorder(color.opacity(0.30), lineWidth: 0.5))
-        .foregroundStyle(color)
     }
 
     private var latencyChip: some View {

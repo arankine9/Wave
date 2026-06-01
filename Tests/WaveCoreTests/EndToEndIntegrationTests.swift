@@ -1,6 +1,6 @@
 // Wires the production pipeline end to end: hotkey controller, then
 // orchestrator, then STT, then cleanup, then paster. Stubs are at the
-// audio and LLM boundaries only, everything else is the real type the
+// audio boundary only, everything else is the real type the
 // AppDelegate wires up. Drives one hold-and-release cycle per case so
 // integration bugs that the per-component tests miss have somewhere to
 // fail. Hotkey callbacks are sync so they get routed through a serial
@@ -12,13 +12,11 @@ import XCTest
 final class EndToEndIntegrationTests: XCTestCase {
     func testHoldDictateReleasePastesCleanedText() async throws {
         let backend = StubBackend(finalTranscript: "open paren self dot user underscore id close paren")
-        let client = StubClient(chunks: ["(self.user_id)"])
-        let pipeline = CleanupPipeline(client: client, model: "stub")
         let paster = SpyPaster()
         let appState = AppState()
         let logger = TraceCollector()
         let orchestrator = DictationOrchestrator(
-            backend: backend, cleanup: pipeline, paster: paster,
+            backend: backend, paster: paster,
             appState: appState, logger: logger
         )
 
@@ -28,35 +26,29 @@ final class EndToEndIntegrationTests: XCTestCase {
         let trace = try XCTUnwrap(logger.last)
         XCTAssertEqual(trace.rawTranscript, "open paren self dot user underscore id close paren")
         XCTAssertEqual(trace.finalText, "(self.user_id)")
-        XCTAssertEqual(trace.path, .cleaned)
     }
 
-    func testGateSkipsCleanupForPlainProse() async throws {
+    func testPlainProseGetsSpacingAndCasing() async throws {
         let backend = StubBackend(finalTranscript: "tomorrow morning")
-        let client = StubClient(chunks: ["should not be reached"])
-        let pipeline = CleanupPipeline(client: client, model: "stub")
         let paster = SpyPaster()
         let appState = AppState()
         let orchestrator = DictationOrchestrator(
-            backend: backend, cleanup: pipeline, paster: paster,
+            backend: backend, paster: paster,
             appState: appState
         )
 
         try await runHoldCycle(orchestrator: orchestrator)
 
         XCTAssertEqual(paster.pasted, ["Tomorrow morning"],
-            "deterministic cleanup capitalizes sentence start; LLM still bypassed")
-        XCTAssertEqual(client.callCount, 0)
+            "deterministic cleanup capitalizes the sentence start")
     }
 
-    func testHeuristicFallbackWhenLLMUnreachable() async throws {
+    func testSpokenSymbolsBecomeCode() async throws {
         let backend = StubBackend(finalTranscript: "open paren x close paren")
-        let client = ThrowingClient()
-        let pipeline = CleanupPipeline(client: client, model: "stub")
         let paster = SpyPaster()
         let appState = AppState()
         let orchestrator = DictationOrchestrator(
-            backend: backend, cleanup: pipeline, paster: paster,
+            backend: backend, paster: paster,
             appState: appState
         )
 
@@ -104,28 +96,6 @@ private final class StubSession: STTSession, @unchecked Sendable {
     }
     func finalize() async throws -> String { finalTranscript }
     func cancel() {}
-}
-
-private final class StubClient: CleanupClient, @unchecked Sendable {
-    private let chunks: [String]
-    private let lock = NSLock()
-    private var _callCount = 0
-    var callCount: Int { lock.withLock { _callCount } }
-    init(chunks: [String]) { self.chunks = chunks }
-    func stream(systemPrompt: String, userText: String, model: String) -> AsyncThrowingStream<String, Error> {
-        lock.withLock { _callCount += 1 }
-        let chunks = self.chunks
-        return AsyncThrowingStream { c in
-            for chunk in chunks { c.yield(chunk) }
-            c.finish()
-        }
-    }
-}
-
-private final class ThrowingClient: CleanupClient, @unchecked Sendable {
-    func stream(systemPrompt: String, userText: String, model: String) -> AsyncThrowingStream<String, Error> {
-        AsyncThrowingStream { c in c.finish(throwing: CleanupError.transport("offline")) }
-    }
 }
 
 private final class SpyPaster: Paster, @unchecked Sendable {

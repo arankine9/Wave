@@ -44,45 +44,21 @@ extension MicrophoneChoice: RawRepresentable {
     }
 }
 
-public enum CleanupMode: String, Sendable, CaseIterable, Identifiable {
-    case auto       // try LLM, fall back to heuristic, fall back to raw
-    case heuristic  // skip the LLM entirely; always use HeuristicCleanup
-    case off        // paste raw STT output
-
-    public var id: String { rawValue }
-    public var displayName: String {
-        switch self {
-        case .auto:      return "Auto (LLM, falls back to heuristic)"
-        case .heuristic: return "Heuristic only (no LLM)"
-        case .off:       return "Off (paste raw transcript)"
-        }
-    }
-}
-
 public struct Preferences: Sendable, Equatable {
-    public var cleanupModel: String
-    public var ollamaURL: String
     public var pasteMode: PasteMode
-    public var cleanupMode: CleanupMode
     public var holdThresholdMs: Int
     public var doubleTapWindowMs: Int
     public var microphoneChoice: MicrophoneChoice
     public var muteAudioWhileRecording: Bool
 
     public init(
-        cleanupModel: String = "qwen2.5-coder:7b-instruct",
-        ollamaURL: String = "http://127.0.0.1:11434",
         pasteMode: PasteMode = .paste,
-        cleanupMode: CleanupMode = .auto,
         holdThresholdMs: Int = 250,
         doubleTapWindowMs: Int = 280,
         microphoneChoice: MicrophoneChoice = .builtIn,
         muteAudioWhileRecording: Bool = true
     ) {
-        self.cleanupModel = cleanupModel
-        self.ollamaURL = ollamaURL
         self.pasteMode = pasteMode
-        self.cleanupMode = cleanupMode
         self.holdThresholdMs = holdThresholdMs
         self.doubleTapWindowMs = doubleTapWindowMs
         self.microphoneChoice = microphoneChoice
@@ -91,17 +67,8 @@ public struct Preferences: Sendable, Equatable {
 
     public static func loadFromEnvironment(_ env: [String: String] = ProcessInfo.processInfo.environment) -> Preferences {
         var p = Preferences()
-        if let raw = env["WAVE_CLEANUP_MODEL"], !raw.isEmpty {
-            p.cleanupModel = raw
-        }
-        if let raw = env["WAVE_OLLAMA_URL"], !raw.isEmpty {
-            p.ollamaURL = raw
-        }
         if let raw = env["WAVE_PASTE_MODE"], let v = PasteMode(rawValue: raw) {
             p.pasteMode = v
-        }
-        if let raw = env["WAVE_CLEANUP_MODE"], let v = CleanupMode(rawValue: raw) {
-            p.cleanupMode = v
         }
         return p
     }

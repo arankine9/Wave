@@ -4,9 +4,6 @@ public struct DictationTrace: Sendable, Equatable {
     public var sttMs: Int = 0
     public var cleanupMs: Int = 0
     public var pasteMs: Int = 0
-    public var path: CleanupResult.Path = .skipped
-    public var inputTokens: Int = 0
-    public var outputTokens: Int = 0
     public var rawTranscript: String = ""
     public var finalText: String = ""
 
@@ -21,9 +18,12 @@ public protocol DictationLogger: AnyObject, Sendable {
 /// the only inputs from outside; the orchestrator owns the STT session and
 /// drives audio -> transcript -> cleanup -> paste sequentially. State updates
 /// are pushed onto the supplied AppState so the menu bar reflects progress.
+///
+/// "Cleanup" here is the pure-Swift `DeterministicCleanup` pass (disfluency
+/// removal, spoken-symbol substitution for code, spacing/casing). It runs on
+/// every utterance, needs no network, and is fast enough to be inline.
 public actor DictationOrchestrator {
     private let backend: STTBackend
-    private let cleanup: CleanupPipeline
     private let paster: Paster
     private let appState: AppState
     private let clock: WaveClock
@@ -45,7 +45,6 @@ public actor DictationOrchestrator {
 
     public init(
         backend: STTBackend,
-        cleanup: CleanupPipeline,
         paster: Paster,
         appState: AppState,
         clock: WaveClock = RealClock(),
@@ -54,7 +53,6 @@ public actor DictationOrchestrator {
         mediaMuteEnabled: @escaping @Sendable () -> Bool = { false }
     ) {
         self.backend = backend
-        self.cleanup = cleanup
         self.paster = paster
         self.appState = appState
         self.clock = clock
@@ -167,24 +165,15 @@ public actor DictationOrchestrator {
 
         appState.setStatus(.cleaning)
         let cleanupStart = clock.now()
-        let result: CleanupResult
-        do {
-            result = try await cleanup.run(rawTranscript: raw)
-        } catch {
-            appState.setStatus(.error("Cleanup: \(error)"))
-            return
-        }
+        let finalText = DeterministicCleanup.transform(raw)
         trace.cleanupMs = Int((clock.now() - cleanupStart) * 1000)
-        trace.path = result.path
-        trace.inputTokens = result.inputTokens
-        trace.outputTokens = result.outputTokens
-        trace.finalText = result.text
+        trace.finalText = finalText
 
-        if !result.text.isEmpty {
+        if !finalText.isEmpty {
             appState.setStatus(.pasting)
             let pasteStart = clock.now()
             do {
-                try paster.paste(result.text)
+                try paster.paste(finalText)
             } catch {
                 appState.setStatus(.error("Paste: \(error)"))
                 return

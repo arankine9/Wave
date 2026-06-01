@@ -21,7 +21,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         debugLog("applicationDidFinishLaunching")
-        SystemPrompt.assertWithinBudget()
 
         // Reclaim the Fn key from macOS as early as possible. This is
         // load-bearing — without it, pressing Fn fires the emoji
@@ -82,20 +81,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             try? await parakeet.prewarm()
         }
 
-        let url = URL(string: current.ollamaURL) ?? URL(string: "http://127.0.0.1:11434")!
-        let client = OllamaClient(baseURL: url)
-        let identityCache = IdentityCache(file: AppPaths.identityCacheURL())
-        let pipeline = CleanupPipeline(
-            client: client,
-            model: current.cleanupModel,
-            identityCache: identityCache,
-            mode: current.cleanupMode
-        )
         let paster = PasterFactory.make(mode: current.pasteMode)
 
         let orchestrator = DictationOrchestrator(
             backend: backend,
-            cleanup: pipeline,
             paster: paster,
             appState: appState,
             logger: history,

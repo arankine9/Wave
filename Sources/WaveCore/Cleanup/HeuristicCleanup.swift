@@ -1,9 +1,9 @@
 import Foundation
 
-/// Regex-based fallback cleanup. Used when no LLM is reachable so the app
-/// still produces sensible code-shaped output. Not a replacement for the
-/// LLM path; identifier reassembly and language-specific syntax are still
-/// best handled by Ollama.
+/// Regex-based cleanup for spoken code. Converts spoken symbols ("open paren"
+/// → "(", "dot" → "."), spoken digits ("five" → "5"), and joins letter-by-
+/// letter identifier spellings ("u s e r underscore i d" → "user_id").
+/// Runs as the code-dictation branch of `DeterministicCleanup`.
 public enum HeuristicCleanup {
     private struct Replacement {
         let pattern: String

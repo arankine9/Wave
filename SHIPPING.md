@@ -1,6 +1,6 @@
 # Shipping checklist
 
-Wave's spec lives in `project.md`. The autonomous loop took the codebase from empty repo to a runnable native menu-bar app with a full dictation pipeline. Some final gates need a real environment (Apple Developer account, running Ollama, recorded audio). This file lists each gate and the exact command to flip it green.
+Wave's spec lives in `project.md`. The autonomous loop took the codebase from empty repo to a runnable native menu-bar app with a full dictation pipeline. Some final gates need a real environment (Apple Developer account, recorded audio). This file lists each gate and the exact command to flip it green.
 
 ## Status legend
 
@@ -15,9 +15,8 @@ Wave's spec lives in `project.md`. The autonomous loop took the codebase from em
 | F1 | App boots without crashing | ✅ | `bash scripts/smoke.sh` |
 | F2 | Fn-key hotkey detection | ✅ | `swift test --filter HotkeyControllerTests` |
 | F3 | STT backend boots and accepts audio | 🔴 | Record audio fixtures (see `Tests/fixtures/audio/README.md`), then `bash scripts/bench-latency.sh` |
-| F4 | Cleanup model produces ≥80% valid output | 🟡 | `ollama serve & ollama pull qwen2.5-coder:7b-instruct && bash scripts/judge.sh` |
 | F5 | Synthetic paste reaches a target window | 🟡 | Manual: launch app, focus a TextEdit window, dictate |
-| F6 | Skip-cleanup gate decisions correct | ✅ | `swift test --filter FixtureGateTests` |
+| F6 | Deterministic cleanup (code vs prose routing) | ✅ | `swift test --filter HeuristicCleanupTests` |
 | F7 | History panel renders last 50 | ✅ | Open via menu bar → Open History… |
 
 ## Performance gates
@@ -26,16 +25,13 @@ Wave's spec lives in `project.md`. The autonomous loop took the codebase from em
 |---|---|---|---|
 | P1 | E2E p50 ≤ 800ms | 🔴 | Record audio + run `scripts/bench-latency.sh` |
 | P2 | E2E p95 ≤ 1800ms | 🔴 | Same as P1 |
-| P3 | Cleanup input p95 ≤ 200 tokens | ✅ | `swift test --filter TokenBudgetBenchmark` |
 | P4 | Idle CPU ≤ 1.5%, RAM ≤ 350MB | 🟡 | `bash scripts/bench-idle.sh` |
 
 ## Quality gates
 
 | ID | Gate | Status | How to flip |
 |---|---|---|---|
-| Q1 | LLM-judge mean ≥ 7.5/10 | 🟡 | `bash scripts/judge.sh` |
-| Q2 | Zero hallucinations on audit corpus | 🟡 | `bash scripts/judge.sh` (asserts) |
-| Q3 | Identifier-spelling preservation | ✅ | `swift test --filter FixtureGateTests` (gate-side); cleanup-side via `judge.sh` |
+| Q3 | Identifier-spelling preservation | ✅ | `swift test --filter HeuristicCleanupTests` |
 
 ## Packaging & release
 
@@ -49,16 +45,12 @@ Wave's spec lives in `project.md`. The autonomous loop took the codebase from em
 
 ## One-shot end-to-end
 
-If you have Developer ID + Ollama + audio fixtures already in place:
+If you have Developer ID + audio fixtures already in place:
 
 ```bash
-ollama serve &
-ollama pull qwen2.5-coder:7b-instruct
-
-swift test                              # 37 unit tests
+swift test                              # unit + integration suite
 bash scripts/smoke.sh                   # F1
 bash scripts/bench-idle.sh              # P4
-bash scripts/judge.sh                   # F4 + Q1 + Q2
 bash scripts/bench-latency.sh           # F3 + P1 + P2 (after recording fixtures)
 
 export WAVE_SIGNING_IDENTITY="Developer ID Application: …"

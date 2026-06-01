@@ -1,7 +1,8 @@
 import Foundation
 
-/// Three-stage pure-Swift cleanup that runs on every utterance before any
-/// LLM stage. Order matters:
+/// Three-stage pure-Swift cleanup that runs on every utterance. Needs no
+/// network and is fast enough to run inline on the dictation path. Order
+/// matters:
 ///
 ///   1. DisfluencyFilter — drop fillers, dedup stutters, fix I-restarts.
 ///      Must run first so later passes don't re-introduce wrong-cased

@@ -1,7 +1,7 @@
 // HeuristicCleanup is the regex pass that handles common code-shaped
-// dictation (parens, dot, underscore, number words, fat arrow) without
-// going anywhere near the LLM. Also covers the pipeline fallback path
-// when the LLM client throws and heuristic fallback is on.
+// dictation (parens, dot, underscore, number words, fat arrow). It's the
+// code-dictation branch of DeterministicCleanup; the last test pins that
+// it's reachable end-to-end through that entry point.
 
 import XCTest
 @testable import WaveCore
@@ -36,34 +36,12 @@ final class HeuristicCleanupTests: XCTestCase {
         )
     }
 
-    func testFallbackPathInPipelineWhenClientThrows() async throws {
-        let throwing = ThrowingClient()
-        let pipeline = CleanupPipeline(client: throwing, model: "ignored", allowHeuristicFallback: true)
-        let result = try await pipeline.run(rawTranscript: "open paren x close paren")
-        XCTAssertEqual(result.text, "(x)")
-        XCTAssertEqual(result.path, .cleaned)
-        XCTAssertEqual(result.inputTokens, 0,
-            "no LLM was called so input tokens stay at zero")
-    }
-
-    func testDisabledFallbackPropagatesError() async {
-        let throwing = ThrowingClient()
-        let pipeline = CleanupPipeline(client: throwing, model: "ignored", allowHeuristicFallback: false)
-        do {
-            _ = try await pipeline.run(rawTranscript: "open paren x close paren")
-            XCTFail("expected throw")
-        } catch let err as CleanupError {
-            XCTAssertEqual(err, .transport("no server"))
-        } catch {
-            XCTFail("unexpected error: \(error)")
-        }
-    }
-}
-
-private final class ThrowingClient: CleanupClient, @unchecked Sendable {
-    func stream(systemPrompt: String, userText: String, model: String) -> AsyncThrowingStream<String, Error> {
-        AsyncThrowingStream { c in
-            c.finish(throwing: CleanupError.transport("no server"))
-        }
+    /// `DeterministicCleanup` routes spoken-code dictation through
+    /// `HeuristicCleanup`, so the same transform is reachable end-to-end.
+    func testReachedViaDeterministicCleanup() {
+        XCTAssertEqual(
+            DeterministicCleanup.transform("open paren x close paren"),
+            "(x)"
+        )
     }
 }
