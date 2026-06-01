@@ -1,10 +1,12 @@
+// SkipGate has hand-picked unit coverage in SkipGateTests. This runs the
+// same gate against the cleanup-pair and identifier-spelling corpora so
+// a decision regression at scale fails fast. Spelling fixtures must
+// never be gate-skipped or cleanup never runs and the spelled-out
+// identifier gets lost.
+
 import XCTest
 @testable import WaveCore
 
-/// These tests pin SkipGate's decisions against the cleanup-pair and
-/// identifier-spelling fixture corpora. The gate must skip plain prose,
-/// must NOT skip code-shaped input, and must NEVER skip a letter-by-letter
-/// identifier spelling (or the user loses identifier characters).
 final class FixtureGateTests: XCTestCase {
     private struct CleanupCorpus: Decodable {
         struct Entry: Decodable {

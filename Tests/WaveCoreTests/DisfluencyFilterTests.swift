@@ -1,3 +1,9 @@
+// DisfluencyFilter strips "um", "uh", "like" and similar words without
+// eating the cases where those same words are doing real work ("I like
+// the search", "feels like there's no latency"). The line between
+// filler and real word is thin enough that most of the coverage lives
+// here, including stutter dedup and the I-restart artifact.
+
 import XCTest
 @testable import WaveCore
 

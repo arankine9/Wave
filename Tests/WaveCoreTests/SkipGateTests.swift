@@ -1,3 +1,8 @@
+// SkipGate decides whether the LLM cleanup call is worth making. Plain
+// short prose skips to save tokens, anything that looks like code or a
+// spelled-out identifier goes through. It's easy to over or under
+// trigger this so the bulk of the cases live here.
+
 import XCTest
 @testable import WaveCore
 

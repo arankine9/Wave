@@ -1,3 +1,8 @@
+// CleanupPipeline chains the gate, deterministic cleanup, and the LLM
+// call together. Covers the three branches: gate-skip with no LLM hit,
+// code-shaped input that does call the LLM and concatenates streamed
+// chunks, and client error propagation when heuristic fallback is off.
+
 import XCTest
 @testable import WaveCore
 

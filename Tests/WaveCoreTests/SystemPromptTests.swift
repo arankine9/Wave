@@ -1,3 +1,7 @@
+// Keeps the cleanup system prompt under its token budget. If it grows
+// unbounded the per-call input cost climbs and the latency budget falls
+// over with it.
+
 import XCTest
 @testable import WaveCore
 

@@ -1,3 +1,8 @@
+// HeuristicCleanup is the regex pass that handles common code-shaped
+// dictation (parens, dot, underscore, number words, fat arrow) without
+// going anywhere near the LLM. Also covers the pipeline fallback path
+// when the LLM client throws and heuristic fallback is on.
+
 import XCTest
 @testable import WaveCore
 

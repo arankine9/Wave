@@ -1,3 +1,9 @@
+// The orchestrator is the actor that glues hotkey events to STT, the
+// cleanup pipeline, and the paster. Covers the main flows I care about:
+// hold and release, arm then commit then stop, single-tap discard,
+// stop with no session open, empty transcript, and the media
+// pause/resume behaviour around recording.
+
 import XCTest
 @testable import WaveCore
 

@@ -1,3 +1,9 @@
+// If cleanup keeps returning the same raw text unchanged across enough
+// passes, IdentityCache remembers it and tells the gate to skip future
+// calls for that input. Pins the threshold count, the mutation reset,
+// case and whitespace normalization, and on-disk persistence across
+// instances.
+
 import XCTest
 @testable import WaveCore
 

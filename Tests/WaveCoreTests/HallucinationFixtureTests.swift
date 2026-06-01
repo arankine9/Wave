@@ -1,10 +1,11 @@
+// Structural check on the hallucination audit JSON. The actual "did the
+// model invent tokens" check needs a real LLM and runs in bench-judge.sh
+// against Ollama. This just guards the corpus shape so a malformed
+// fixture can't make that judge run silently pass.
+
 import XCTest
 @testable import WaveCore
 
-/// Structural validation of the hallucination audit fixture. The actual
-/// "did the model add tokens it should not" check requires a real LLM and
-/// runs in `bench-judge.sh` against Ollama; this test ensures the corpus
-/// is well-formed so a future judge run cannot silently no-op.
 final class HallucinationFixtureTests: XCTestCase {
     func testFixtureLoadsAndIsWellFormed() throws {
         let url = fixtureURL(named: "hallucination-audit.json")

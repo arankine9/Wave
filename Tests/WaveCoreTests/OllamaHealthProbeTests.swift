@@ -1,8 +1,10 @@
+// OllamaHealthProbe asks the local daemon whether it's up and whether
+// the model we want is installed. Stubs the network with an in-process
+// URLProtocol so these don't need a real Ollama running to pass.
+
 import XCTest
 @testable import WaveCore
 
-/// Stand up a tiny in-process URL protocol so we can exercise the probe
-/// without a real Ollama daemon.
 final class OllamaHealthProbeTests: XCTestCase {
     func testReachableWithModelPulled() async {
         StubURLProtocol.respond = .json(200, [

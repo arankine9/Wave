@@ -1,14 +1,14 @@
+// Wires the production pipeline end to end: hotkey controller, then
+// orchestrator, then STT, then cleanup, then paster. Stubs are at the
+// audio and LLM boundaries only, everything else is the real type the
+// AppDelegate wires up. Drives one hold-and-release cycle per case so
+// integration bugs that the per-component tests miss have somewhere to
+// fail. Hotkey callbacks are sync so they get routed through a serial
+// AsyncStream to keep press/release in order.
+
 import XCTest
 @testable import WaveCore
 
-/// CI-runnable proof of the runtime pipeline:
-///   HotkeyController hold/release → DictationOrchestrator → STT
-///   → CleanupPipeline (real, with stub client) → Paster
-/// No mic, no LLM, no AppKit. Pins the same code path the production
-/// AppDelegate constructs.
-///
-/// The hotkey controller fires sync callbacks; we route them through a
-/// serial AsyncStream so press/release reach the orchestrator in order.
 final class EndToEndIntegrationTests: XCTestCase {
     func testHoldDictateReleasePastesCleanedText() async throws {
         let backend = StubBackend(finalTranscript: "open paren self dot user underscore id close paren")

@@ -1,12 +1,13 @@
+// Runs DeterministicCleanup against my actual dictation history and dumps
+// a before/after report to /tmp/wave_cleanup_report.txt. Not a hard
+// pass/fail, more of an inspection tool when I'm tuning the rules against
+// real data. Plus a few targeted asserts for patterns that kept showing
+// up in the log. No-op if the history file isn't there so CI doesn't
+// break for anyone else.
+
 import XCTest
 @testable import WaveCore
 
-/// Runs DeterministicCleanup against the user's real dictation history and
-/// writes a before/after report to /tmp/wave_cleanup_report.txt. Not a hard
-/// pass/fail — it's an inspection tool for tuning rules against real data.
-///
-/// When `WAVE_HISTORY_FILE` is unset and the default file is missing, the
-/// test is a no-op so CI doesn't break for users without local history.
 final class HistoryGoldenTests: XCTestCase {
 
     func testGenerateBeforeAfterReport() throws {

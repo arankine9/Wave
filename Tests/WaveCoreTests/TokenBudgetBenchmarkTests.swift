@@ -1,11 +1,13 @@
+// Offline token-budget probe (project.md gate P3). Walks every
+// cleanup-pair fixture, computes the input cost (system prompt plus raw
+// transcript) the pipeline would charge, and asserts p95 stays at or
+// under 200. The output-token bound needs a real LLM to verify so it
+// isn't checked here, but a prompt edit that quietly pushes input over
+// the budget fails this before it lands.
+
 import XCTest
 @testable import WaveCore
 
-/// Offline token-budget probe (project.md gate P3). Walks every cleanup-pair
-/// fixture, computes the input-token cost (system prompt + raw transcript)
-/// the pipeline would charge, and asserts p95 ≤ 200. The output-token bound
-/// can only be verified once a real LLM is wired in; documented here so the
-/// regression surface stays visible.
 final class TokenBudgetBenchmarkTests: XCTestCase {
     func testInputTokenP95UnderTwoHundred() throws {
         let url = fixtureURL(named: "cleanup-pairs.json")

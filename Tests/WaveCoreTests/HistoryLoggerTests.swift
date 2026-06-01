@@ -1,3 +1,7 @@
+// HistoryLogger writes dictation traces to a JSONL file on a background
+// queue. These pin the write/read round trip and the recent(limit:)
+// slicing.
+
 import XCTest
 @testable import WaveCore
 

@@ -1,3 +1,8 @@
+// Cleanup has three modes: off (raw passthrough), heuristic (regex
+// only, no LLM), and auto (LLM with heuristic fallback). One test per
+// mode plus a check that the env var loader parses the mode setting
+// correctly.
+
 import XCTest
 @testable import WaveCore
 
