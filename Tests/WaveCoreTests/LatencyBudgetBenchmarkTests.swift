@@ -1,51 +1,18 @@
+// In-process companion to scripts/bench-latency.sh. The shell script
+// hits a real mic with recorded audio fixtures and proves end-to-end
+// p50/p95 on a dev machine. This one stubs both boundaries and runs in
+// CI on every push, so order-of-magnitude regressions in the wiring
+// (actor hops, state machine, deterministic cleanup, paste plumbing)
+// fail before they land.
+//
+// Budget is 184ms. Picked above typical wall-clock on a stock M3 runner
+// to absorb CI variance, tight enough that a real regression trips it
+// immediately. If you find yourself raising it, don't. Go look at what
+// slowed down.
+
 import XCTest
 @testable import WaveCore
 
-/// Fixed-budget perf gate on the orchestrator hold→paste cycle.
-///
-/// This is the in-process companion to `scripts/bench-latency.sh` (which
-/// hits a real microphone and needs recorded audio fixtures). The script
-/// proves end-to-end p50/p95 on a developer machine; this test runs in CI
-/// on every push and catches order-of-magnitude regressions in the wiring
-/// around the I/O boundaries — actor hops, state-machine transitions,
-/// deterministic cleanup, paste plumbing.
-///
-/// Boundaries are stubbed:
-///
-///   - `PerfStubBackend` returns a pre-canned transcript with no audio
-///     capture.
-///   - `PerfSpyPaster` records the pasted string instead of touching
-///     the pasteboard.
-///
-/// What's NOT stubbed (and therefore what the budget covers):
-///
-///   - The full `HotkeyController` state machine driven by `TestClock`.
-///   - The real `DictationOrchestrator` actor (await hops, state writes).
-///   - `DeterministicCleanup` including `SkipGate`, disfluency filtering,
-///     spoken-symbol substitution, and spacing/casing.
-///   - `AppState` status fan-out.
-///
-/// # Why a hard ceiling
-///
-/// `XCTClockMetric` gives Xcode users baseline tracking, but baselines
-/// live in `.xcbaselines` files Xcode owns — they're not portable to
-/// `swift test` on CI. So we ALSO wall-clock a single warm cycle and
-/// assert it under a fixed ceiling. That ceiling is the SDET-grade
-/// version of "the resume path feels snappy": if the in-process cycle
-/// ever drifts above it, something architectural regressed (extra
-/// actor hop, accidental sync I/O, retain cycle in the cleanup
-/// pipeline, etc.) and CI fails before the bad commit lands.
-///
-/// # Budget rationale
-///
-/// `RESUME_BUDGET_MS = 184`. The number is chosen above the typical
-/// observed wall-clock for this cycle on a stock M3 macOS runner
-/// (single-digit milliseconds) to absorb GitHub Actions variance, GC
-/// pauses, and ARC churn, while still being tight enough that a real
-/// architectural regression (a sync sleep, a missed-await deadlock
-/// recovery, a quadratic pass over the cleanup corpus) trips it
-/// immediately. If you find yourself raising this number, **don't** —
-/// the right move is to investigate what slowed down.
 final class LatencyBudgetBenchmarkTests: XCTestCase {
 
     /// Fixed-budget ceiling enforced by `testResumeCycleUnderBudget`.

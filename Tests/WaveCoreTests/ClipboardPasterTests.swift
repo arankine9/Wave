@@ -1,3 +1,9 @@
+// Paster has to put the dictated text on the clipboard, fire Cmd+V,
+// then restore the user's original clipboard contents. Easy to get
+// wrong around the restore timing, especially when the user copies
+// something during the restore window or the paste itself fails before
+// the restore is scheduled.
+
 #if canImport(AppKit)
 import AppKit
 import XCTest

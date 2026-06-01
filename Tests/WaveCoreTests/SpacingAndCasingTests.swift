@@ -1,3 +1,9 @@
+// SpacingAndCasing is the deterministic spacing and capitalization
+// pass that runs even when LLM cleanup is skipped. Pins the rules:
+// no space before punctuation, glue around brackets, hyphen joins,
+// the e.g. and i.e. exemptions, and capitalization after a period,
+// question mark, or newline.
+
 import XCTest
 @testable import WaveCore
 

@@ -1,3 +1,7 @@
+// MicrophoneChoice gets persisted to UserDefaults as a raw string, so
+// rawValue round-trips have to be lossless across every case and
+// unknown strings have to reject cleanly without crashing.
+
 import XCTest
 @testable import WaveCore
 

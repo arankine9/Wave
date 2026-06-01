@@ -1,3 +1,8 @@
+// HotkeyController is the Fn-key state machine: tap, hold, double tap
+// to lock, click to unlock. Every transition is timing-sensitive so
+// the tests drive a TestClock to keep the press/release/timeout
+// ordering deterministic.
+
 import XCTest
 @testable import WaveCore
 

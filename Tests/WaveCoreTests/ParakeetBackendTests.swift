@@ -1,17 +1,16 @@
+// Real Parakeet integration test. Uses macOS's `say` binary to synthesize
+// a known phrase (TTS, no mic permission needed), decodes it to a 16 kHz
+// mono Float buffer, and pushes it through the same FluidAudio transcribe
+// call ParakeetSession uses at runtime. Asserts the model picks up the
+// phrase. Gated behind WAVE_RUN_PARAKEET_TEST because the first run pulls
+// a few hundred MB of weights, which I don't want to do on every plain
+// `swift test`.
+
 import XCTest
 import AVFoundation
 @testable import WaveCore
 @testable import FluidAudio
 
-/// End-to-end Parakeet integration test. Synthesizes a known phrase via the
-/// macOS `say` binary (text-to-speech — the inverse direction, requires no
-/// permission), decodes it to a 16 kHz mono Float buffer, and runs it through
-/// the same FluidAudio `AsrManager.transcribe(_:decoderState:)` call path
-/// `ParakeetSession` uses. Asserts the model recognises the phrase.
-///
-/// Triggers a real model download (a few hundred MB) on first run if the
-/// FluidAudio cache is empty, so it's gated behind the `WAVE_RUN_PARAKEET_TEST`
-/// env var to keep the default `swift test` cycle fast and offline.
 final class ParakeetBackendTests: XCTestCase {
     func testParakeetTranscribesSynthesizedSpeech() async throws {
         let env = ProcessInfo.processInfo.environment

@@ -1,3 +1,6 @@
+// Smoke tests for the observable app state. Status callback fires on
+// transition, display names stay stable, version string is populated.
+
 import XCTest
 @testable import WaveCore
 

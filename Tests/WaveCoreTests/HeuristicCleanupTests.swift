@@ -1,3 +1,8 @@
+// HeuristicCleanup is the regex pass that handles common code-shaped
+// dictation (parens, dot, underscore, number words, fat arrow). It's the
+// code-dictation branch of DeterministicCleanup; the last test pins that
+// it's reachable end-to-end through that entry point.
+
 import XCTest
 @testable import WaveCore
 
