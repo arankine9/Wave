@@ -3,9 +3,7 @@ import XCTest
 
 final class DictationOrchestratorTests: XCTestCase {
     func testHoldCycleProducesPasteAndTrace() async throws {
-        let backend = MockSTTBackend(finalText: "self.user_id = 5")
-        let client = StubCleanupClient(chunks: ["self.user_id = 5"])
-        let pipeline = CleanupPipeline(client: client, model: "stub")
+        let backend = MockSTTBackend(finalText: "hold cycle works")
         let paster = SpyPaster()
         let appState = AppState()
         let logger = TraceCollector()
@@ -14,7 +12,6 @@ final class DictationOrchestratorTests: XCTestCase {
 
         let orch = DictationOrchestrator(
             backend: backend,
-            cleanup: pipeline,
             paster: paster,
             appState: appState,
             logger: logger
@@ -23,11 +20,11 @@ final class DictationOrchestratorTests: XCTestCase {
         await orch.handle(.startRecording(reason: .hold))
         await orch.handle(.stopRecording)
 
-        XCTAssertEqual(paster.pasted, ["self.user_id = 5"])
+        // Deterministic cleanup capitalizes the sentence start.
+        XCTAssertEqual(paster.pasted, ["Hold cycle works"])
         let trace = try XCTUnwrap(logger.last)
-        XCTAssertEqual(trace.finalText, "self.user_id = 5")
-        XCTAssertEqual(trace.path, .cleaned)
-        XCTAssertGreaterThan(trace.inputTokens, 0)
+        XCTAssertEqual(trace.finalText, "Hold cycle works")
+        XCTAssertEqual(trace.rawTranscript, "hold cycle works")
 
         let observed = states.snapshot
         XCTAssertEqual(observed.first, .recording)
@@ -37,17 +34,14 @@ final class DictationOrchestratorTests: XCTestCase {
         XCTAssertTrue(observed.contains(.pasting))
     }
 
-    func testGateSkipPathPastesRaw() async throws {
+    func testPlainProseIsDeterministicallyCleaned() async throws {
         let backend = MockSTTBackend(finalText: "hello there")
-        let client = StubCleanupClient(chunks: ["should not be called"])
-        let pipeline = CleanupPipeline(client: client, model: "stub")
         let paster = SpyPaster()
         let appState = AppState()
         let logger = TraceCollector()
 
         let orch = DictationOrchestrator(
             backend: backend,
-            cleanup: pipeline,
             paster: paster,
             appState: appState,
             logger: logger
@@ -57,21 +51,33 @@ final class DictationOrchestratorTests: XCTestCase {
         await orch.handle(.stopRecording)
 
         XCTAssertEqual(paster.pasted, ["Hello there"])
-        XCTAssertEqual(logger.last?.path, .cleaned)
-        XCTAssertEqual(client.callCount, 0,
-            "plain prose is cleaned deterministically without an LLM call")
+    }
+
+    func testSpokenCodeIsDeterministicallyCleaned() async throws {
+        let backend = MockSTTBackend(finalText: "open paren self dot user underscore id close paren")
+        let paster = SpyPaster()
+        let appState = AppState()
+
+        let orch = DictationOrchestrator(
+            backend: backend,
+            paster: paster,
+            appState: appState
+        )
+
+        await orch.handle(.startRecording(reason: .hold))
+        await orch.handle(.stopRecording)
+
+        XCTAssertEqual(paster.pasted, ["(self.user_id)"])
     }
 
     func testArmCommitStopPastesAndTraces() async throws {
         let backend = MockSTTBackend(finalText: "hello world")
-        let pipeline = CleanupPipeline(client: StubCleanupClient(), model: "stub")
         let paster = SpyPaster()
         let appState = AppState()
         let logger = TraceCollector()
 
         let orch = DictationOrchestrator(
             backend: backend,
-            cleanup: pipeline,
             paster: paster,
             appState: appState,
             logger: logger
@@ -89,14 +95,12 @@ final class DictationOrchestratorTests: XCTestCase {
 
     func testArmThenDisarmDiscardsSession() async {
         let backend = MockSTTBackend(finalText: "should not appear")
-        let pipeline = CleanupPipeline(client: StubCleanupClient(), model: "stub")
         let paster = SpyPaster()
         let appState = AppState()
         let logger = TraceCollector()
 
         let orch = DictationOrchestrator(
             backend: backend,
-            cleanup: pipeline,
             paster: paster,
             appState: appState,
             logger: logger
@@ -114,13 +118,11 @@ final class DictationOrchestratorTests: XCTestCase {
 
     func testStopWithoutStartIsNoop() async {
         let backend = MockSTTBackend(finalText: "")
-        let pipeline = CleanupPipeline(client: StubCleanupClient(), model: "stub")
         let paster = SpyPaster()
         let appState = AppState()
 
         let orch = DictationOrchestrator(
             backend: backend,
-            cleanup: pipeline,
             paster: paster,
             appState: appState
         )
@@ -132,14 +134,12 @@ final class DictationOrchestratorTests: XCTestCase {
 
     func testMediaPausesOnRecordAndResumesOnStop() async {
         let backend = MockSTTBackend(finalText: "hello")
-        let pipeline = CleanupPipeline(client: StubCleanupClient(), model: "stub")
         let paster = SpyPaster()
         let appState = AppState()
         let media = SpyMediaController(playing: true)
 
         let orch = DictationOrchestrator(
             backend: backend,
-            cleanup: pipeline,
             paster: paster,
             appState: appState,
             media: media,
@@ -157,14 +157,12 @@ final class DictationOrchestratorTests: XCTestCase {
 
     func testMediaDoesNotResumeWhenNothingWasPlaying() async {
         let backend = MockSTTBackend(finalText: "hello")
-        let pipeline = CleanupPipeline(client: StubCleanupClient(), model: "stub")
         let paster = SpyPaster()
         let appState = AppState()
         let media = SpyMediaController(playing: false)
 
         let orch = DictationOrchestrator(
             backend: backend,
-            cleanup: pipeline,
             paster: paster,
             appState: appState,
             media: media,
@@ -180,14 +178,12 @@ final class DictationOrchestratorTests: XCTestCase {
 
     func testMediaIsLeftAloneWhenPreferenceIsOff() async {
         let backend = MockSTTBackend(finalText: "hello")
-        let pipeline = CleanupPipeline(client: StubCleanupClient(), model: "stub")
         let paster = SpyPaster()
         let appState = AppState()
         let media = SpyMediaController(playing: true)
 
         let orch = DictationOrchestrator(
             backend: backend,
-            cleanup: pipeline,
             paster: paster,
             appState: appState,
             media: media,
@@ -202,12 +198,10 @@ final class DictationOrchestratorTests: XCTestCase {
 
     func testEmptyFinalTranscriptSkipsPaste() async {
         let backend = MockSTTBackend(finalText: "")
-        let pipeline = CleanupPipeline(client: StubCleanupClient(), model: "stub")
         let paster = SpyPaster()
         let appState = AppState()
         let orch = DictationOrchestrator(
             backend: backend,
-            cleanup: pipeline,
             paster: paster,
             appState: appState
         )
@@ -245,24 +239,6 @@ private final class MockSTTSession: STTSession, @unchecked Sendable {
     }
     func finalize() async throws -> String { finalText }
     func cancel() {}
-}
-
-private final class StubCleanupClient: CleanupClient, @unchecked Sendable {
-    private let chunks: [String]
-    private let lock = NSLock()
-    private var _callCount = 0
-    var callCount: Int { lock.withLock { _callCount } }
-
-    init(chunks: [String] = []) { self.chunks = chunks }
-
-    func stream(systemPrompt: String, userText: String, model: String) -> AsyncThrowingStream<String, Error> {
-        lock.withLock { _callCount += 1 }
-        let chunks = self.chunks
-        return AsyncThrowingStream { continuation in
-            for c in chunks { continuation.yield(c) }
-            continuation.finish()
-        }
-    }
 }
 
 private final class SpyPaster: Paster, @unchecked Sendable {

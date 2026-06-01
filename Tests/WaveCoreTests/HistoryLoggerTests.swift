@@ -15,9 +15,6 @@ final class HistoryLoggerTests: XCTestCase {
         var trace = DictationTrace()
         trace.rawTranscript = "self dot user underscore id"
         trace.finalText = "self.user_id"
-        trace.path = .cleaned
-        trace.inputTokens = 42
-        trace.outputTokens = 5
         trace.sttMs = 120
         trace.cleanupMs = 200
         trace.pasteMs = 8
@@ -36,8 +33,8 @@ final class HistoryLoggerTests: XCTestCase {
         let recent = logger.recent(limit: 10)
         XCTAssertEqual(recent.count, 1)
         XCTAssertEqual(recent.first?.finalText, "self.user_id")
-        XCTAssertEqual(recent.first?.path, "cleaned")
-        XCTAssertEqual(recent.first?.inputTokens, 42)
+        XCTAssertEqual(recent.first?.rawTranscript, "self dot user underscore id")
+        XCTAssertEqual(recent.first?.cleanupMs, 200)
     }
 
     func testRecentRespectsLimit() {
@@ -46,7 +43,6 @@ final class HistoryLoggerTests: XCTestCase {
         for i in 0..<5 {
             var trace = DictationTrace()
             trace.finalText = "entry-\(i)"
-            trace.path = .skipped
             logger.record(trace)
         }
         Thread.sleep(forTimeInterval: 0.15)

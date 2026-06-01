@@ -197,7 +197,7 @@ private struct PermissionsStep: View {
                 )
                 permissionRow(
                     title: "Accessibility",
-                    explainer: Text("Detecting the \(Image(systemName: "globe")) key and pastes cleaned text"),
+                    explainer: Text("Detecting the \(Image(systemName: "globe")) key and pasting text"),
                     granted: snapshot.accessibility == .granted,
                     prompt: .accessibility
                 )
@@ -314,7 +314,7 @@ private struct FnKeyStep: View {
             StepHeader(
                 icon: "keyboard",
                 title: "Hold Fn, then talk",
-                subtitle: "Press and hold Fn, speak, then release. Wave transcribes and pastes the cleaned text anywhere."
+                subtitle: "Press and hold Fn, speak, then release. Wave transcribes and pastes the text anywhere."
             )
 
             ZStack {
@@ -616,8 +616,8 @@ private struct PasteStep: View {
         VStack(spacing: 22) {
             StepHeader(
                 icon: "text.cursor",
-                title: "Cleaned text drops into your focused app",
-                subtitle: "A local model (Ollama) cleans up your transcript. Wave pastes the result wherever your cursor is."
+                title: "Your words drop into your focused app",
+                subtitle: "Wave transcribes what you say and pastes it wherever your cursor is."
             )
 
             ZStack {
@@ -626,7 +626,7 @@ private struct PasteStep: View {
 
                 VStack(alignment: .leading, spacing: 18) {
                     sectionLabel(icon: "mic.fill", text: "You said")
-                    Text("\u{201C}open paren self dot user underscore id close paren\u{201D}")
+                    Text("\u{201C}ship the release on friday\u{201D}")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .opacity(phase == .empty ? 0 : 1)
@@ -635,7 +635,7 @@ private struct PasteStep: View {
                     Divider()
 
                     sectionLabel(icon: "text.cursor", text: "Pasted into your app")
-                    EditorMockup(text: phase == .pasted ? "self.user_id" : "")
+                    EditorMockup(text: phase == .pasted ? "Ship the release on Friday" : "")
                 }
                 .padding(22)
                 .frame(maxWidth: .infinity, alignment: .leading)

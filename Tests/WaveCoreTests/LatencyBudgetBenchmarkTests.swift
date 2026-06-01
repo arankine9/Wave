@@ -4,19 +4,16 @@ import XCTest
 /// Fixed-budget perf gate on the orchestrator hold→paste cycle.
 ///
 /// This is the in-process companion to `scripts/bench-latency.sh` (which
-/// hits a real microphone + real Ollama and needs recorded audio
-/// fixtures). The script proves end-to-end p50/p95 on a developer
-/// machine; this test runs in CI on every push and catches
-/// order-of-magnitude regressions in the wiring around the I/O
-/// boundaries — actor hops, state-machine transitions, deterministic
-/// cleanup, gate decisions, paste plumbing.
+/// hits a real microphone and needs recorded audio fixtures). The script
+/// proves end-to-end p50/p95 on a developer machine; this test runs in CI
+/// on every push and catches order-of-magnitude regressions in the wiring
+/// around the I/O boundaries — actor hops, state-machine transitions,
+/// deterministic cleanup, paste plumbing.
 ///
 /// Boundaries are stubbed:
 ///
 ///   - `PerfStubBackend` returns a pre-canned transcript with no audio
 ///     capture.
-///   - `PerfStubClient` streams pre-canned chunks with no LLM round
-///     trip.
 ///   - `PerfSpyPaster` records the pasted string instead of touching
 ///     the pasteboard.
 ///
@@ -24,8 +21,8 @@ import XCTest
 ///
 ///   - The full `HotkeyController` state machine driven by `TestClock`.
 ///   - The real `DictationOrchestrator` actor (await hops, state writes).
-///   - `CleanupPipeline.run` including `SkipGate`, `DeterministicCleanup`,
-///     token estimation, and chunk concatenation.
+///   - `DeterministicCleanup` including `SkipGate`, disfluency filtering,
+///     spoken-symbol substitution, and spacing/casing.
 ///   - `AppState` status fan-out.
 ///
 /// # Why a hard ceiling
@@ -57,27 +54,33 @@ final class LatencyBudgetBenchmarkTests: XCTestCase {
     /// order-of-magnitude regressions.
     private static let RESUME_BUDGET_MS: Double = 184
 
+    /// Spoken-code transcript driven through the cycle. Routed through
+    /// `HeuristicCleanup` by `DeterministicCleanup`, so the cycle exercises
+    /// the heavier cleanup branch.
+    static let cycleInput = "self dot user underscore id equals five"
+
     /// Fixed-budget assertion. Drives one warm hold→paste cycle and
     /// fails if the wall-clock exceeds `RESUME_BUDGET_MS`. Run twice;
-    /// the first cycle absorbs one-shot allocations (actor creation,
-    /// system prompt token-count cache priming, etc.) and the second
-    /// is what we judge.
+    /// the first cycle absorbs one-shot allocations (actor creation, regex
+    /// compilation caches, etc.) and the second is what we judge.
     func testResumeCycleUnderBudget() async throws {
+        let expected = DeterministicCleanup.transform(Self.cycleInput)
+
         let warm = try await Self.runOneCycle()
-        XCTAssertEqual(warm, "self.user_id = 5", "warmup cycle must take the cleaned path")
+        XCTAssertEqual(warm, expected, "warmup cycle must take the cleaned path")
 
         let started = Date()
         let pasted = try await Self.runOneCycle()
         let elapsedMs = Date().timeIntervalSince(started) * 1000
 
-        XCTAssertEqual(pasted, "self.user_id = 5",
+        XCTAssertEqual(pasted, expected,
                        "perf cycle must take the cleaned path or the budget isn't measuring the right thing")
         XCTAssertLessThan(
             elapsedMs,
             Self.RESUME_BUDGET_MS,
             "orchestrator hold→paste cycle took \(Int(elapsedMs))ms — budget is \(Int(Self.RESUME_BUDGET_MS))ms. " +
             "This is the in-process resume path; if it regressed, suspect an extra actor hop, a sync I/O leak, " +
-            "a quadratic pass in CleanupPipeline, or a missed-await in DictationOrchestrator."
+            "a quadratic pass in DeterministicCleanup, or a missed-await in DictationOrchestrator."
         )
     }
 
@@ -102,13 +105,11 @@ final class LatencyBudgetBenchmarkTests: XCTestCase {
     /// the perf gate is on the same code path the E2E correctness
     /// tests cover.
     nonisolated static func runOneCycle() async throws -> String {
-        let backend = PerfStubBackend(finalTranscript: "self dot user underscore id equals five")
-        let client = PerfStubClient(chunks: ["self.user_id = 5"])
-        let pipeline = CleanupPipeline(client: client, model: "stub")
+        let backend = PerfStubBackend(finalTranscript: cycleInput)
         let paster = PerfSpyPaster()
         let appState = AppState()
         let orchestrator = DictationOrchestrator(
-            backend: backend, cleanup: pipeline, paster: paster,
+            backend: backend, paster: paster,
             appState: appState
         )
 
@@ -170,18 +171,6 @@ private final class PerfStubSession: STTSession, @unchecked Sendable {
     }
     func finalize() async throws -> String { finalTranscript }
     func cancel() {}
-}
-
-private final class PerfStubClient: CleanupClient, @unchecked Sendable {
-    private let chunks: [String]
-    init(chunks: [String]) { self.chunks = chunks }
-    func stream(systemPrompt: String, userText: String, model: String) -> AsyncThrowingStream<String, Error> {
-        let chunks = self.chunks
-        return AsyncThrowingStream { c in
-            for chunk in chunks { c.yield(chunk) }
-            c.finish()
-        }
-    }
 }
 
 private final class PerfSpyPaster: Paster, @unchecked Sendable {

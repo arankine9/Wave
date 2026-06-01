@@ -2,7 +2,7 @@
 # Idle resource benchmark: launches Wave, lets it sit for 30 seconds,
 # then samples CPU% and RSS via `ps`. Asserts the project.md P4 bound
 # (idle CPU ≤ 1.5%, idle RAM ≤ 350MB excluding model weights — STT model
-# weights and Ollama RAM are external).
+# weights are external).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

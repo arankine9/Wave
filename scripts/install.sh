@@ -73,34 +73,10 @@ else
 fi
 
 ###############################################################################
-say "Cleanup model (Ollama)"
+say "Cleanup"
 ###############################################################################
-if command -v ollama >/dev/null 2>&1; then
-    ok "ollama installed ($(ollama --version 2>/dev/null | head -1))"
-    if curl -sf http://127.0.0.1:11434/api/tags >/dev/null; then
-        ok "ollama daemon reachable on :11434"
-        if curl -sf http://127.0.0.1:11434/api/tags | grep -q 'qwen2.5-coder'; then
-            ok "qwen2.5-coder model present"
-        else
-            miss "qwen2.5-coder:7b-instruct not pulled"
-            do_or_record "pull cleanup model" ollama pull qwen2.5-coder:7b-instruct
-        fi
-    else
-        miss "ollama daemon not running"
-        note "Start it with: ollama serve &  (or 'brew services start ollama')"
-        if [ "$YES" = "1" ]; then
-            ollama serve >/dev/null 2>&1 &
-            sleep 2
-        fi
-    fi
-else
-    miss "ollama not installed"
-    if command -v brew >/dev/null 2>&1; then
-        do_or_record "install ollama" brew install ollama
-    else
-        miss "Homebrew not installed — see https://brew.sh"
-    fi
-fi
+note "Cleanup is a pure-Swift deterministic pass built into the app —"
+note "no model to install and no daemon to run."
 
 ###############################################################################
 say "Permissions (these can only be granted by the user via System Settings)"

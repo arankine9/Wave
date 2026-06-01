@@ -28,9 +28,6 @@ public final class HistoryLogger: DictationLogger, @unchecked Sendable {
                 timestampISO: ISO8601DateFormatter().string(from: Date()),
                 rawTranscript: trace.rawTranscript,
                 finalText: trace.finalText,
-                path: trace.path.rawValue,
-                inputTokens: trace.inputTokens,
-                outputTokens: trace.outputTokens,
                 sttMs: trace.sttMs,
                 cleanupMs: trace.cleanupMs,
                 pasteMs: trace.pasteMs
@@ -62,12 +59,28 @@ public final class HistoryLogger: DictationLogger, @unchecked Sendable {
 
 public struct HistoryLine: Codable, Equatable, Sendable {
     public let timestampISO: String
+    /// The verbatim STT transcript before deterministic cleanup. Retained in
+    /// the log for diagnostics (and the `HistoryGoldenTests` replay tool); it
+    /// is no longer surfaced in the history UI.
     public let rawTranscript: String
     public let finalText: String
-    public let path: String
-    public let inputTokens: Int
-    public let outputTokens: Int
     public let sttMs: Int
     public let cleanupMs: Int
     public let pasteMs: Int
+
+    public init(
+        timestampISO: String,
+        rawTranscript: String,
+        finalText: String,
+        sttMs: Int,
+        cleanupMs: Int,
+        pasteMs: Int
+    ) {
+        self.timestampISO = timestampISO
+        self.rawTranscript = rawTranscript
+        self.finalText = finalText
+        self.sttMs = sttMs
+        self.cleanupMs = cleanupMs
+        self.pasteMs = pasteMs
+    }
 }
