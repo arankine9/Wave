@@ -68,99 +68,43 @@ if [ "$SIGNED" = "1" ]; then
 fi
 
 DMG="$DIST/$APP_NAME.dmg"
-RW_DMG="$DIST/$APP_NAME-rw.dmg"
-STAGING="$DIST/staging"
 VOL="$APP_NAME"
+BG="$ROOT/Resources/dmg-background.png"
 
 echo "[release] building $DMG (drag-to-Applications layout)"
 
-bash "$ROOT/scripts/make-dmg-background.sh"
-
-rm -rf "$STAGING"
-mkdir -p "$STAGING/.background"
-cp -R "$APP" "$STAGING/"
-cp "$ROOT/Resources/dmg-background.tiff" "$STAGING/.background/background.tiff"
-ln -s /Applications "$STAGING/Applications"
-
-rm -f "$RW_DMG"
-hdiutil create \
-    -volname "$VOL" \
-    -srcfolder "$STAGING" \
-    -ov \
-    -format UDRW \
-    -fs HFS+ \
-    "$RW_DMG" >/dev/null
-
-# If a stale /Volumes/Wave is hanging around, hdiutil silently mounts at
-# "/Volumes/Wave 1" and the AppleScript below — keyed on disk name $VOL —
-# binds to the wrong (read-only) volume and the .DS_Store never gets written.
-if [ -d "/Volumes/$VOL" ]; then
-    echo "[release] detaching stale /Volumes/$VOL before mounting build DMG"
-    hdiutil detach "/Volumes/$VOL" -force >/dev/null 2>&1 || true
+# The committed, hand-tuned background is the source of truth; only render it
+# if it has gone missing. Changing the artwork = re-run make-dmg-background.sh
+# and commit the PNG (see that script's header).
+if [ ! -f "$BG" ]; then
+    echo "[release] $BG missing; rendering it"
+    bash "$ROOT/scripts/make-dmg-background.sh"
 fi
 
-ATTACH_OUTPUT="$(hdiutil attach "$RW_DMG" -readwrite -noverify -noautoopen)"
-MOUNT_DIR="$(echo "$ATTACH_OUTPUT" | grep -E '/Volumes/' | sed -E 's/^.*(\/Volumes\/[^[:space:]].*)$/\1/' | head -1)"
-if [ -z "$MOUNT_DIR" ] || [ ! -d "$MOUNT_DIR" ]; then
-    echo "[release] failed to locate mount point from hdiutil attach output" >&2
-    exit 1
+# dmgbuild writes the window's .DS_Store directly (drag-to-Applications layout,
+# background, icon positions) WITHOUT driving Finder over AppleScript — so this
+# produces the same styled window locally and on a headless CI runner. Prefer a
+# dmgbuild already on PATH; otherwise keep a private venv under .build/ (which
+# is gitignored).
+if command -v dmgbuild >/dev/null 2>&1; then
+    DMGBUILD="$(command -v dmgbuild)"
+else
+    VENV="$ROOT/.build/dmg-venv"
+    if [ ! -x "$VENV/bin/dmgbuild" ]; then
+        echo "[release] installing dmgbuild into $VENV"
+        python3 -m venv "$VENV"
+        "$VENV/bin/pip" install --quiet --upgrade pip
+        "$VENV/bin/pip" install --quiet dmgbuild
+    fi
+    DMGBUILD="$VENV/bin/dmgbuild"
 fi
-# Use the *actual* mounted volume name in the AppleScript so the script keeps
-# working even if hdiutil disambiguated the mount with a " 1" suffix.
-MOUNT_VOL="$(basename "$MOUNT_DIR")"
-cleanup_mount() {
-    [ -d "$MOUNT_DIR" ] && hdiutil detach "$MOUNT_DIR" -force >/dev/null 2>&1 || true
-}
-trap cleanup_mount EXIT
-
-if [ -n "${WAVE_SKIP_DMG_LAYOUT:-}" ]; then
-    echo "[release] WAVE_SKIP_DMG_LAYOUT set; skipping Finder window styling"
-elif ! osascript <<APPLESCRIPT
-tell application "Finder"
-    tell disk "$MOUNT_VOL"
-        open
-        set current view of container window to icon view
-        set toolbar visible of container window to false
-        set statusbar visible of container window to false
-        set the bounds of container window to {200, 200, 800, 600}
-        set viewOptions to the icon view options of container window
-        set arrangement of viewOptions to not arranged
-        set icon size of viewOptions to 128
-        try
-            set background picture of viewOptions to file ".background:background.tiff"
-        on error errMsg number errNum
-            log "background picture assignment failed: " & errMsg & " (" & errNum & ")"
-        end try
-        set position of item "$APP_NAME.app" of container window to {150, 200}
-        set position of item "Applications" of container window to {450, 200}
-        update without registering applications
-        delay 5
-        close
-    end tell
-end tell
-APPLESCRIPT
-then
-    echo "[release] Finder scripting failed — grant Terminal Automation access for Finder in System Settings → Privacy & Security → Automation, then re-run." >&2
-    exit 1
-fi
-
-# Finder writes .DS_Store asynchronously after `close`. Give it time to flush,
-# normalize permissions so the file is readable when the DMG is opened later,
-# then sync before detach.
-sleep 2
-chmod -Rf go-w "$MOUNT_DIR" 2>/dev/null || true
-sync
-sync
-hdiutil detach "$MOUNT_DIR" -force >/dev/null
-trap - EXIT
 
 rm -f "$DMG"
-hdiutil convert "$RW_DMG" \
-    -format UDZO \
-    -imagekey zlib-level=9 \
-    -o "$DMG" >/dev/null
-rm -f "$RW_DMG"
-rm -rf "$STAGING"
+"$DMGBUILD" \
+    -s "$ROOT/scripts/dmg-settings.py" \
+    -D app="$APP" \
+    -D background="$BG" \
+    "$VOL" "$DMG"
 
 if [ "$SIGNED" = "1" ]; then
     echo "[release] codesigning DMG"

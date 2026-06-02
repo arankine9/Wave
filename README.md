@@ -27,7 +27,7 @@ open build/Wave.app      # run; look in the menu bar near the battery
 scripts/release.sh       # produce dist/Wave.dmg with drag-to-Applications layout
 ```
 
-Run Wave from `/Applications/Wave.app` (drag from the DMG) rather than directly from `build/`. macOS guards `~/Desktop`, `~/Downloads`, and `~/Documents` with TCC, and an Accessibility grant for a bundle living inside one of those folders can fail to stick. The DMG's branded background is generated at `Resources/dmg-background.tiff` (a HiDPI multi-resolution TIFF — 600×400 @1×, 1200×800 @2×); replace it with your own via `tiffutil -cathidpicheck bg-1x.png bg-2x.png -out Resources/dmg-background.tiff` to use custom artwork.
+Run Wave from `/Applications/Wave.app` (drag from the DMG) rather than directly from `build/`. macOS guards `~/Desktop`, `~/Downloads`, and `~/Documents` with TCC, and an Accessibility grant for a bundle living inside one of those folders can fail to stick. The DMG opens to a branded "drag Wave to Applications" window — [`scripts/release.sh`](scripts/release.sh) builds the layout with [`dmgbuild`](https://dmgbuild.readthedocs.io) (which writes the window's `.DS_Store` directly, so it works the same on a headless CI runner as it does locally). The backdrop lives at `Resources/dmg-background.png`; edit and re-render it with `bash scripts/make-dmg-background.sh`, then commit the PNG.
 
 ## Testing
 
