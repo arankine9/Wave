@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Wave — on-device dictation, built for coding</title>
+<meta name="description" content="Native macOS dictation for coders. Hold the Fn key, talk, release — get clean, code-aware text in the focused app. 100% on-device. Your voice never leaves your Mac.">
+<meta name="theme-color" content="#0a1422">
+
+<!-- Open Graph -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="Wave — on-device dictation, built for coding">
+<meta property="og:description" content="Hold a key, talk, release. Clean, code-aware text in any app — without a single byte leaving your Mac.">
+
+<!-- Waveform favicon, drawn to match the app icon -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230f2138'/%3E%3Cg fill='%23eef3f8'%3E%3Crect x='6'  y='13' width='2.4' height='6'  rx='1.2'/%3E%3Crect x='10.5' y='9'  width='2.4' height='14' rx='1.2'/%3E%3Crect x='15' y='6'  width='2.4' height='20' rx='1.2'/%3E%3Crect x='19.5' y='11' width='2.4' height='10' rx='1.2'/%3E%3Crect x='24' y='8'  width='2.4' height='16' rx='1.2'/%3E%3C/g%3E%3C/svg%3E">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --bg-0:#091321;
+    --bg-1:#102239;
+    --bg-2:#16365b;
+    --ink:#eef4fa;
+  }
+
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  html{overflow:hidden}
+  body{
+    font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+    background:var(--bg-0);
+    color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+    overflow:hidden;
+  }
+
+  /* ---------- stage ---------- */
+  .stage{
+    position:relative;
+    width:100%;
+    height:100svh;
+    min-height:560px;
+    overflow:hidden;
+    isolation:isolate;
+    background:
+      radial-gradient(120% 95% at 82% 8%, var(--bg-2) 0%, var(--bg-1) 38%, var(--bg-0) 78%);
+  }
+
+  /* the hero: Hokusai's wave with the ASCII baked in — one flat image */
+  .painting{
+    position:absolute; inset:0; z-index:0;
+    background:url("hero.jpg") center / cover no-repeat;
+  }
+
+  /* fallback gradient shown if the hero image fails to load */
+  .fallback{
+    position:absolute; inset:0; z-index:0;
+    background:
+      radial-gradient(80% 70% at 70% 12%, rgba(43,98,150,.55), transparent 60%),
+      radial-gradient(60% 60% at 30% 90%, rgba(20,54,91,.6), transparent 60%);
+  }
+
+  /* legibility scrims, layered over the ascii */
+  .scrim{position:absolute; inset:0; z-index:2; pointer-events:none}
+  .scrim.bottom{
+    background:linear-gradient(to top,
+      var(--bg-0) 0%, rgba(9,19,33,.92) 14%, rgba(9,19,33,.55) 34%, transparent 62%);
+  }
+  .scrim.left{
+    background:linear-gradient(to right,
+      rgba(9,19,33,.86) 0%, rgba(9,19,33,.45) 28%, transparent 55%);
+  }
+  .scrim.vignette{
+    box-shadow:inset 0 0 220px 40px rgba(5,10,18,.7);
+    background:radial-gradient(130% 130% at 50% 42%, transparent 58%, rgba(5,10,18,.55) 100%);
+  }
+
+  /* film grain */
+  .grain{
+    position:absolute; inset:-50%; z-index:3; pointer-events:none;
+    opacity:.05; mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  /* ---------- faux macOS menu bar (the product lives here) ---------- */
+  .menubar{
+    position:absolute; top:0; left:0; right:0; z-index:6;
+    height:30px;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:0 14px;
+    /* the actual macOS menu-bar font: San Francisco via the system UI stack */
+    font-family:-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+    font-size:13px;
+    font-weight:400;
+    text-shadow:0 1px 3px rgba(0,8,20,.55);   /* keep the white text legible on the artwork */
+  }
+  .menubar .left{display:flex; gap:18px; color:var(--ink)}
+  .menubar .left b{color:var(--ink); font-weight:600}
+  .menubar .left span{display:none}
+  @media(min-width:620px){.menubar .left span{display:inline}}
+  .menubar .right{display:flex; align-items:center; gap:14px; color:var(--ink)}
+  .menubar .right .clock{font-variant-numeric:tabular-nums; white-space:nowrap; text-align:right}
+
+  /* ---------- macOS desktop folder — sits under the clock, opens GitHub ---------- */
+  .desk-folder{
+    position:absolute; z-index:6;
+    top:44px; right:16px;
+    width:104px;
+    display:flex; flex-direction:column; align-items:center; gap:5px;
+    padding:8px 6px 7px;
+    border-radius:9px;
+    text-decoration:none;
+    border:1px solid transparent;
+    opacity:0; animation:rise .8s .9s cubic-bezier(.2,.7,.2,1) forwards;
+    transition:background .15s ease, border-color .15s ease;
+  }
+  .desk-folder .folder-art{
+    position:relative; display:block; width:72px; line-height:0;
+    transition:transform .2s cubic-bezier(.2,.7,.2,1);
+  }
+  .desk-folder .folder-ico{          /* the real macOS GenericFolderIcon, extracted from the system */
+    width:72px; height:auto; display:block;
+    filter:drop-shadow(0 7px 12px rgba(0,12,28,.5));
+  }
+  .desk-folder .folder-glyph{        /* GitHub mark, tinted + engraved like a macOS system-folder badge */
+    position:absolute; left:50%; top:57%; transform:translate(-50%,-50%);
+    width:40%; height:auto;
+    fill:#0e3a64; fill-opacity:.5;
+    filter:drop-shadow(0 1px 0 rgba(255,255,255,.5));
+  }
+  .desk-folder .folder-label{
+    font-size:12px; line-height:1.2; color:var(--ink);
+    padding:1px 7px; border-radius:5px;
+    text-shadow:0 1px 4px rgba(0,0,0,.75);   /* keeps the name legible on the painting */
+    white-space:nowrap;
+  }
+  /* hover/focus mimics a selected desktop icon: lift + blue label highlight */
+  .desk-folder:hover{background:rgba(143,178,210,.10); border-color:rgba(143,178,210,.14)}
+  .desk-folder:hover .folder-art{transform:translateY(-2px) scale(1.04)}
+  .desk-folder:focus-visible{outline:none; background:rgba(143,178,210,.10)}
+  .desk-folder:hover .folder-label,
+  .desk-folder:focus-visible .folder-label{
+    background:#1f6feb; color:#fff; text-shadow:none;
+  }
+
+  /* ---------- CTA: the floating, lower-center wrapper — fades/rises in, stays centred ---------- */
+  .glass-cta{
+    position:absolute; z-index:7;
+    left:50%; bottom:clamp(64px,15vh,148px);
+    display:flex; justify-content:center;
+    opacity:0; transform:translateX(-50%);
+    animation:riseCenter 1s .72s cubic-bezier(.2,.7,.2,1) forwards;
+  }
+
+  /* ---------- Liquid-Glass download pill ---------- */
+  .glass-dl{
+    position:relative; isolation:isolate; overflow:hidden;
+    display:inline-flex; align-items:center; gap:15px;
+    padding:18px 38px;
+    border-radius:22px;
+    text-decoration:none; color:var(--ink);
+    font-weight:700; font-size:16px; letter-spacing:.2px;
+
+    /* translucent body, lit from the top, refracting the wave behind it */
+    background:linear-gradient(177deg,
+      rgba(255,255,255,.26), rgba(255,255,255,.08) 44%, rgba(255,255,255,.04));
+    -webkit-backdrop-filter:blur(22px) saturate(190%);
+    backdrop-filter:blur(22px) saturate(190%);
+    border:1px solid rgba(255,255,255,.22);
+
+    /* the glass rim: a crisp specular top line, soft inner glow, real depth */
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.7),
+      inset 0 -10px 22px -12px rgba(255,255,255,.22),
+      inset 0 0 18px rgba(255,255,255,.08),
+      0 20px 46px -14px rgba(0,0,0,.6),
+      0 4px 12px rgba(0,0,0,.3);
+    transition:transform .34s cubic-bezier(.2,.7,.2,1), box-shadow .34s ease, border-color .34s ease;
+  }
+  /* highlight that pools near the top of real glass */
+  .glass-dl .glass-tint{
+    position:absolute; inset:0; z-index:-1; border-radius:inherit; pointer-events:none;
+    background:
+      radial-gradient(130% 80% at 50% -28%, rgba(255,255,255,.45), transparent 58%),
+      radial-gradient(120% 120% at 50% 120%, rgba(143,208,230,.14), transparent 55%);
+  }
+  /* travelling specular sweep on hover */
+  .glass-dl::after{
+    content:""; position:absolute; top:0; left:-130%; width:55%; height:100%;
+    background:linear-gradient(100deg, transparent, rgba(255,255,255,.55), transparent);
+    transform:skewX(-18deg); pointer-events:none;
+  }
+  .glass-dl .dl-mark{width:26px; height:26px; flex:none; opacity:.96}
+  .glass-dl .dl-txt{display:flex; flex-direction:column; line-height:1.16; text-align:left}
+  .glass-dl .dl-txt small{
+    font-weight:500; font-size:11px; letter-spacing:.34px; color:rgba(238,244,250,.6);
+  }
+  .glass-dl:hover{
+    transform:translateY(-3px) scale(1.012);
+    border-color:rgba(255,255,255,.34);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.85),
+      inset 0 -10px 24px -12px rgba(255,255,255,.3),
+      inset 0 0 22px rgba(255,255,255,.14),
+      0 28px 64px -16px rgba(0,0,0,.62),
+      0 0 0 1px rgba(143,208,230,.22),
+      0 0 46px -8px rgba(143,208,230,.3);
+  }
+  .glass-dl:hover::after{left:150%; transition:left .9s ease}
+  .glass-dl:active{transform:translateY(-1px) scale(1)}
+  .glass-dl:focus-visible{
+    outline:none; border-color:rgba(143,208,230,.6);
+    box-shadow:0 0 0 3px rgba(143,208,230,.32), 0 20px 46px -14px rgba(0,0,0,.6);
+  }
+
+  @keyframes rise{from{opacity:0; transform:translateY(16px)} to{opacity:1; transform:none}}
+  /* keeps the -50% centring while it rises in, so the transform isn't clobbered */
+  @keyframes riseCenter{
+    from{opacity:0; transform:translateX(-50%) translateY(18px)}
+    to{opacity:1; transform:translateX(-50%)}
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    *{animation:none !important; transition:none !important}
+  }
+
+  /* tighten on short / narrow screens so nothing scrolls */
+  @media (max-width:560px){
+    .glass-cta{width:min(92%,400px); bottom:clamp(22px,5vh,40px)}
+    .glass-dl{width:100%; justify-content:center; padding:16px 24px}
+  }
+</style>
+</head>
+<body>
+<div class="stage">
+
+  <div class="fallback"></div>
+  <div class="painting"></div>
+
+  <div class="scrim left"></div>
+  <div class="scrim bottom"></div>
+  <div class="scrim vignette"></div>
+  <div class="grain"></div>
+
+  <!-- faux macOS menu bar -->
+  <nav class="menubar" aria-label="primary">
+    <div class="left" aria-hidden="true">
+      <b>Wave</b><span>Edit</span><span>Capsule</span><span>History</span><span>Help</span>
+    </div>
+    <div class="right">
+      <span class="clock" id="clock">Sun Jun 1  9:41 AM</span>
+    </div>
+  </nav>
+
+  <!-- a real macOS folder (system GenericFolderIcon), sitting on the desktop under the clock; opens the repo -->
+  <a class="desk-folder" href="https://github.com/arankine9/Wave" title="Wave on GitHub">
+    <span class="folder-art">
+      <img class="folder-ico" src="macfolder.png" width="72" height="72" alt="" aria-hidden="true" draggable="false">
+      <svg class="folder-glyph" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 2C6.48 2 2 6.58 2 12.25c0 4.53 2.87 8.37 6.84 9.73.5.1.68-.22.68-.49 0-.24-.01-.88-.01-1.73-2.78.62-3.37-1.37-3.37-1.37-.45-1.18-1.11-1.5-1.11-1.5-.91-.64.07-.62.07-.62 1 .07 1.53 1.06 1.53 1.06.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.37-2.22-.26-4.56-1.14-4.56-5.07 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.72 0 0 .84-.27 2.75 1.05a9.36 9.36 0 0 1 5 0c1.91-1.32 2.75-1.05 2.75-1.05.55 1.42.2 2.46.1 2.72.64.72 1.03 1.63 1.03 2.75 0 3.94-2.34 4.81-4.57 5.06.36.32.68.94.68 1.9 0 1.37-.01 2.48-.01 2.82 0 .27.18.6.69.49A10.02 10.02 0 0 0 22 12.25C22 6.58 17.52 2 12 2Z"/>
+      </svg>
+    </span>
+    <span class="folder-label">Github</span>
+  </a>
+
+  <!-- standalone primary CTA — a floating Liquid-Glass download pill, lower-center -->
+  <div class="glass-cta">
+    <a class="glass-dl" href="https://github.com/arankine9/Wave/releases/latest/download/Wave.dmg" download>
+      <span class="glass-tint" aria-hidden="true"></span>
+      <svg class="dl-mark" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3v11m0 0 4.2-4.2M12 14l-4.2-4.2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M4.5 18.5h15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <span class="dl-txt">Download for macOS<small>Apple silicon</small></span>
+    </a>
+  </div>
+</div>
+
+<script>
+(function(){
+  // ---- live menu-bar clock ----
+  var clockEl = document.getElementById('clock');
+  function tick(){
+    try{
+      var now = new Date();
+      // macOS-style: weekday, month, day, then time — no comma, two-space gap
+      var date = now.toLocaleDateString([], {weekday:'short', month:'short', day:'numeric'}).replace(/,/g, '');
+      var time = now.toLocaleTimeString([], {hour:'numeric', minute:'2-digit'});
+      clockEl.textContent = date + '  ' + time;
+    }catch(e){}
+  }
+  tick(); setInterval(tick, 15000);
+
+})();
+</script>
+</body>
+</html>
