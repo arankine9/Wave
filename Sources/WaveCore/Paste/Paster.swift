@@ -20,7 +20,21 @@ public protocol Paster: AnyObject, Sendable {
 /// read the pasteboard) we restore the original contents — unless the
 /// pasteboard has been written to in the meantime, in which case we leave
 /// it alone so we don't clobber a fresh user copy.
+///
+/// The restore is a race against the paste target: Cmd+V is delivered as a
+/// synthetic key event that the frontmost app consumes *asynchronously*,
+/// whenever it gets around to processing the keystroke. If we restore the
+/// snapshot before the app has read the pasteboard, the app pastes the OLD
+/// contents (e.g. a file name copied in Finder) instead of the dictation.
+/// `restoreDelay` is therefore sized generously — the only cost of a longer
+/// delay is that our text sits on the clipboard a little longer, whereas a
+/// too-short delay produces a visible wrong-paste on slow/busy apps.
 public final class ClipboardPaster: Paster, @unchecked Sendable {
+    /// Window we leave the dictated text on the clipboard before restoring,
+    /// so even a sluggish frontmost app finishes consuming the Cmd+V first.
+    /// Was 0.15s, which lost the race on slower machines / heavy apps.
+    public static let defaultRestoreDelay: TimeInterval = 0.6
+
     private let pasteboard: NSPasteboard
     private let restoreDelay: TimeInterval
     private let postPasteHotkey: @Sendable () throws -> Void
@@ -28,7 +42,7 @@ public final class ClipboardPaster: Paster, @unchecked Sendable {
 
     public convenience init(
         pasteboard: NSPasteboard = .general,
-        restoreDelay: TimeInterval = 0.15
+        restoreDelay: TimeInterval = ClipboardPaster.defaultRestoreDelay
     ) {
         self.init(
             pasteboard: pasteboard,
@@ -111,8 +125,12 @@ public final class ClipboardPaster: Paster, @unchecked Sendable {
 
     private static func restore(_ payload: RestorePayload) {
         guard !payload.snapshot.isEmpty else { return }
-        // Someone (the user, another tool) wrote to the pasteboard after we
-        // did — that's intentional state; don't clobber it.
+        // The change count being untouched since our write is the single
+        // guard that makes restore safe: it means our dictated text is still
+        // exactly what's on the pasteboard AND nobody else (the user, another
+        // tool, a slow paste target) has written since. If anything wrote
+        // after us — a fresh user copy — that's intentional state, so leave
+        // it alone rather than clobbering it with the stale snapshot.
         guard payload.pasteboard.changeCount == payload.expectedChangeCount else { return }
         payload.pasteboard.clearContents()
         payload.pasteboard.writeObjects(payload.snapshot)

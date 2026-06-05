@@ -100,6 +100,19 @@ final class ClipboardPasterTests: XCTestCase {
         XCTAssertEqual(pb.string(forType: .string), "ORIGINAL")
     }
 
+    // Regression guard for the "pasted a file name instead of the dictation"
+    // bug: Cmd+V is consumed asynchronously by the frontmost app, so if we
+    // restore the prior clipboard too soon the app pastes the stale snapshot.
+    // The default restore window must stay generous enough to lose that race
+    // only on pathologically slow apps. Don't let this drift back toward the
+    // old 0.15s that reproduced the bug.
+    func testDefaultRestoreDelayStaysGenerous() {
+        XCTAssertGreaterThanOrEqual(
+            ClipboardPaster.defaultRestoreDelay, 0.5,
+            "restore delay too short reintroduces the wrong-paste race"
+        )
+    }
+
     func testEmptyClipboardSkipsRestoreSchedule() throws {
         let pb = NSPasteboard.withUniqueName()
         pb.clearContents()
