@@ -149,6 +149,8 @@
   .desk-folder:focus-visible .folder-label{
     background:#1f6feb; color:#fff; text-shadow:none;
   }
+  /* second desktop icon — sits just below the repo folder, opens a prefilled GitHub issue */
+  .desk-folder.issue{top:162px; animation-delay:1.05s}
 
   /* ---------- CTA: the floating, lower-center wrapper — fades/rises in, stays centred ---------- */
   .glass-cta{
@@ -268,6 +270,16 @@
       </svg>
     </span>
     <span class="folder-label">Github</span>
+  </a>
+
+  <!-- second desktop folder — the real macOS Utilities folder icon; opens a prefilled "new issue" form on GitHub (no backend needed) -->
+  <a class="desk-folder issue"
+     href="https://github.com/arankine9/Wave/issues/new?labels=bug&body=%2A%2AWhat%20happened%3F%2A%2A%0A%0A%0A%2A%2ASteps%20to%20reproduce%2A%2A%0A1.%20%0A%0A%2A%2AMy%20setup%2A%2A%0A-%20macOS%20version%3A%20%0A-%20Mac%20model%3A%20%0A-%20Wave%20version%3A%20%0A"
+     title="Report a bug on GitHub" target="_blank" rel="noopener">
+    <span class="folder-art">
+      <img class="folder-ico" src="reportfolder.png" width="72" height="72" alt="" aria-hidden="true" draggable="false">
+    </span>
+    <span class="folder-label">Report a Bug</span>
   </a>
 
   <!-- standalone primary CTA — a floating Liquid-Glass download pill, lower-center -->
