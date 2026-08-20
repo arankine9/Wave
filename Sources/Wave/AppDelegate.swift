@@ -14,6 +14,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var hotkeyController: HotkeyController?
     private var orchestrator: DictationOrchestrator?
     private let history = HistoryLogger(file: HistoryLogger.defaultURL())
+    /// Remembers the last dictation so Ctrl+Cmd+V can re-paste it. Seeded from
+    /// the history log at launch (see `installDictationPipeline`).
+    private var lastDictation = LastDictationStore()
+    private var repasteHotKey: RepasteHotKey?
+    /// The paster the orchestrator pastes through, retained so the repaste
+    /// hotkey can reuse it.
+    private var paster: Paster?
 
     private var pipelineInstalled = false
     private var permissionRetryTimer: Timer?
@@ -48,6 +55,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusController?.install()
 
         installDictationPipeline()
+        installRepasteHotKey()
         startPermissionRetry()
 
         let onboarding = OnboardingWindowController()
@@ -57,6 +65,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         fnMonitor?.stop()
+        repasteHotKey?.unregister()
         statusController?.uninstall()
         permissionRetryTimer?.invalidate()
     }
@@ -82,12 +91,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         let paster = PasterFactory.make(mode: current.pasteMode)
+        self.paster = paster
+
+        // Seed the repaste buffer from the last logged dictation so Ctrl+Cmd+V
+        // works immediately after launch, then keep it current by recording
+        // alongside the history log. Build the composite before handing it to
+        // the orchestrator so both share this exact store instance.
+        let lastDictation = LastDictationStore(text: history.recent(limit: 1).last?.finalText)
+        self.lastDictation = lastDictation
 
         let orchestrator = DictationOrchestrator(
             backend: backend,
             paster: paster,
             appState: appState,
-            logger: history,
+            logger: CompositeDictationLogger([history, lastDictation]),
             media: OutputMuteMediaController(),
             mediaMuteEnabled: { [prefsRef] in prefsRef.value.muteAudioWhileRecording }
         )
@@ -105,6 +122,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hotkeyController = controller
 
         tryStartFnMonitor()
+    }
+
+    /// Registers the Ctrl+Cmd+V global hotkey that re-pastes the most recent
+    /// dictation. Registration needs no permission, so it can happen eagerly
+    /// at launch; the paste it triggers needs Accessibility, same as ordinary
+    /// dictation, and is handled (and logged) if that's missing.
+    private func installRepasteHotKey() {
+        let hotKey = RepasteHotKey()
+        hotKey.onPressed = { [weak self] in
+            Task { @MainActor in self?.repasteLastDictation() }
+        }
+        repasteHotKey = hotKey
+        if hotKey.register() {
+            debugLog("repaste hotkey registered (Ctrl+Cmd+V → last dictation)")
+        } else {
+            // Almost always means another running app already owns Ctrl+Cmd+V
+            // as a global shortcut. Dictation is unaffected; only repaste is.
+            debugLog("repaste hotkey FAILED to register — Ctrl+Cmd+V may be taken by another app")
+        }
+    }
+
+    private func repasteLastDictation() {
+        guard let text = lastDictation.text, !text.isEmpty else {
+            debugLog("repaste: nothing dictated yet; ignoring Ctrl+Cmd+V")
+            return
+        }
+        guard let paster else { return }
+        // The user is still physically holding Ctrl+Cmd+V the instant this
+        // fires. Wait a beat for the chord to lift before synthesizing Cmd+V —
+        // otherwise the held Control rides along and the frontmost app sees
+        // Ctrl+Cmd+V (not a plain paste). 60ms comfortably outlasts a normal
+        // tap-and-release without being perceptible.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.06) { [weak self] in
+            do {
+                try paster.paste(text)
+            } catch {
+                self?.debugLog("repaste: paste failed: \(error)")
+            }
+        }
     }
 
     /// Attempts to install the global Fn key monitor. Returns true once it

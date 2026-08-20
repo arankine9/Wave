@@ -14,6 +14,23 @@ public protocol DictationLogger: AnyObject, Sendable {
     func record(_ trace: DictationTrace)
 }
 
+/// Fans one dictation trace out to several loggers — today the history file
+/// plus the in-memory repaste buffer (`LastDictationStore`). The orchestrator
+/// holds a single `logger`, so this composes the two behind that one slot.
+public final class CompositeDictationLogger: DictationLogger, @unchecked Sendable {
+    private let loggers: [DictationLogger]
+
+    public init(_ loggers: [DictationLogger]) {
+        self.loggers = loggers
+    }
+
+    public func record(_ trace: DictationTrace) {
+        for logger in loggers {
+            logger.record(trace)
+        }
+    }
+}
+
 /// State machine for one dictation cycle. The hotkey controller's events are
 /// the only inputs from outside; the orchestrator owns the STT session and
 /// drives audio -> transcript -> cleanup -> paste sequentially. State updates
